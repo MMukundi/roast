@@ -1,0 +1,19 @@
+{
+    "name": "toastscript",
+    "description": "A PostScript-inspired language bootstrapped with Typescript",
+    "version": "0.0.1",
+    "main": "index.js",
+    "scripts": {
+        "tsCompile": "cd bootstrap && npm run compile --",
+        "tsWatchCompile": "cd bootstrap && npm run watchCompile --"
+    },
+    "keywords": [
+        "concatenative",
+        "stack-based"
+    ],
+    "author": "Marcel Mukundi",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/node": "^16.11.7"
+    }
+}
