@@ -1,5 +1,5 @@
 import { readFileSync } from "fs"
-import { makeToken, tokenString, TokenType } from "./tokens"
+import { makeToken, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace } from "./utils"
 
 abstract class LexerSource {
@@ -169,7 +169,7 @@ abstract class LexerSource {
 	}
 }
 
-class LexerSourceFile extends LexerSource {
+export class LexerSourceFile extends LexerSource {
 	constructor(path: string) {
 		super()
 		this.text = readFileSync(path).toString()
