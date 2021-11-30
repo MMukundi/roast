@@ -9,8 +9,8 @@ function toastError(errorString: string) {
 	errorStyler.styleLog(`toast {error}: ${errorString}\n`)
 	errorStyler.flush()
 }
-function toastWarning(errorString: string) {
-	warningStyler.styleLog(`toast {warn} : ${errorString}\n`)
+function toastWarning(warning: string) {
+	warningStyler.styleLog(`toast {warn}: ${warning}\n`)
 	warningStyler.flush()
 }
 
