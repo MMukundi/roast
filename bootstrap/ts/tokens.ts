@@ -32,7 +32,7 @@ export enum TokenType {
 type TokenList = Token[]
 
 /** The value expected for each TokenType */
-type TokenValueMap = {
+export type TokenValues = {
 	[TokenType.OpenList]: null
 	[TokenType.CloseList]: null
 	[TokenType.OpenBlock]: null
@@ -55,18 +55,21 @@ const tokenStringConstants = {
 }
 
 /** The Token for a specific TokenType */
-type SpecificToken<T extends TokenType> = { type: T, value: TokenValueMap[T] }
+type SpecificToken<T extends TokenType> = { type: T, value: TokenValues[T], location: SourceLocation }
 /** The Token expected for each TokenType */
-type TokenMap = {
+export type TokenMap = {
 	[tokenType in TokenType]: SpecificToken<tokenType>
 }
 
 /** Any Token */
 export type Token = TokenMap[TokenType]
-
+export type SourceLocation = {
+	line: number
+	column: number
+}
 /** Creates a token of the given type */
-export function makeToken<T extends TokenType>(type: T, value?: TokenValueMap[T]): SpecificToken<T> {
-	return { type, value }
+export function makeToken<T extends TokenType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {
+	return { type, value, location }
 }
 export function tokenString(token: Token): string {
 	switch (token.type) {
