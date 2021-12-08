@@ -4,8 +4,8 @@
     "version": "0.0.1",
     "main": "index.js",
     "scripts": {
-        "tsCompile": "cd bootstrap && npm run compile --",
-        "tsWatchCompile": "cd bootstrap && npm run watchCompile --"
+        "tsCompile": "node bootstrap/js/toast.js",
+        "tsWatchCompile": "npm --prefix bootstrap run watchCompile --"
     },
     "keywords": [
         "concatenative",

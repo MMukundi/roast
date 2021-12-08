@@ -3,7 +3,7 @@
     "scripts": {
         "build": "tsc",
         "watchBuild": "tsc -w",
-        "compile": "npm run build && node . --",
+        "compile": "npm run build && node . ",
         "watchCompile": "nodemon --exec 'npm run build && node .' --watch ./ts -e ts --watch"
     },
     "devDependencies": {
