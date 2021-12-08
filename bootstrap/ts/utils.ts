@@ -27,6 +27,12 @@ export function unescapeChar(c: string): string {
 			return c;
 	}
 }
+export function unescapeString(str: string) {
+	return str.toString().split('').map(unescapeChar).join("")
+}
+export function escapeString(str: string) {
+	return str.toString().split('').map(escapeChar).join("")
+}
 export function digitCode(c: string): number {
 	return (c.charCodeAt(0) - ZeroCode)
 }
