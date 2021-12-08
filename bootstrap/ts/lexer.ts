@@ -1,8 +1,11 @@
+import assert from "assert"
 import { readFileSync } from "fs"
-import { makeToken, TokenType } from "./tokens"
+import { makeToken, SourceLocation, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace } from "./utils"
 
-abstract class LexerSource {
+const NegativeSign = "-"
+// TODO: This was previously abstract; was there a reason why?
+export class LexerSource {
 	/** The raw text of this source */
 	protected text: string = ''
 	/** The raw index of this source */
@@ -10,10 +13,13 @@ abstract class LexerSource {
 
 	/** An identifier for this lexer source, used when logging errors */
 	name: string = 'toastSource'
-	/** The line the lexer is currently lexing */
-	line: number = 0
-	/** The position from the front of the line the lexer is in */
-	column: number = 0
+
+	location: SourceLocation = {
+		/** The line the lexer is currently lexing */
+		line: 0,
+		/** The position from the front of the line the lexer is in */
+		column: 0
+	}
 
 	/** The current character. */
 	current() {
@@ -23,10 +29,10 @@ abstract class LexerSource {
 	advanceOne() {
 		let current = this.current()
 		if (current === "\n") {
-			this.line++
-			this.column = 0
+			this.location.line++
+			this.location.column = 0
 		} else {
-			this.column++
+			this.location.column++
 		}
 		this.index++
 		return current
@@ -65,8 +71,8 @@ abstract class LexerSource {
 	}
 
 	/** Returns a string representing the current location in the lexer source. */
-	location(offset: number = 0) {
-		return `${this.name}:${this.line}:${this.column}`
+	locationString(location: SourceLocation) {
+		return `${this.name}:${location.line + 1}:${location.column + 1}`
 	}
 
 	/** Returns whether or not the lexer source is completely consumed. */
@@ -76,30 +82,39 @@ abstract class LexerSource {
 
 	/** Returns the next token in the lexer source. */
 	readToken() {
+		assert(!this.done(), "Tried to read token after end of file")
+
 		let currentChar;
 		// Skip comments
+		this.skipWhitespace()
 		while ((currentChar = this.current()) === "#") {
 			this.advanceUntilChar("\n")
-			this.advanceOne()
+			this.skipWhitespace()
 		}
+		if (this.done()) {
+			return
+		}
+		const tokenLocation = { ...this.location }
 
 		/// Block expressions and comments
 		switch (currentChar) {
+			// Testing for unary negation
 			case "{":
 				this.advanceOne()
-				return makeToken(TokenType.OpenBlock)
+				return makeToken(TokenType.OpenBlock, tokenLocation)
 			case "}":
 				this.advanceOne()
-				return makeToken(TokenType.CloseBlock)
+				return makeToken(TokenType.CloseBlock, tokenLocation)
 			case "[":
 				this.advanceOne()
-				return makeToken(TokenType.OpenList)
+				return makeToken(TokenType.OpenList, tokenLocation)
 			case "]":
 				this.advanceOne()
-				return makeToken(TokenType.CloseList)
+				return makeToken(TokenType.CloseList, tokenLocation)
 			case "\"": {
 				const stringLiteral: string[] = []
 				let escapeNext = false
+				this.advanceOne()
 				this.advanceWhile(() => {
 					const nextChar = this.current()
 					// stringLiteral.push(nextChar)
@@ -119,8 +134,17 @@ abstract class LexerSource {
 				if (this.current() !== '"') {
 					throw ("Unterminated string literal")
 				}
-				return makeToken(TokenType.String, stringLiteral.join(""))
+				this.advanceOne()
+				return makeToken(TokenType.String, tokenLocation, stringLiteral.join(""))
 			}
+		}
+
+		// Testing for unary negation
+		let lastCharMinus = false
+		if (currentChar == NegativeSign) {
+			lastCharMinus = true
+			this.advanceOne()
+			currentChar = this.current()
 		}
 
 		let currentCharAsDigit = digitCode(currentChar)
@@ -153,9 +177,16 @@ abstract class LexerSource {
 				})
 				value += decimalPart
 			}
-			return makeToken(TokenType.Value, value)
+			if (lastCharMinus) {
+				value *= -1
+			}
+			return makeToken(TokenType.Value, tokenLocation, value)
 		} else {
 			const name: string[] = []
+
+			if (lastCharMinus)
+				name.push(NegativeSign)
+
 			this.advanceWhile(() => {
 				const current = this.current()
 				if (!isWhitespace(current)) {
@@ -164,7 +195,8 @@ abstract class LexerSource {
 				}
 				return false
 			})
-			return makeToken(TokenType.Name, name.join(""))
+			this.advanceOne()
+			return makeToken(TokenType.Name, tokenLocation, name.join(""))
 		}
 	}
 }
