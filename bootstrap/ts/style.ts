@@ -29,8 +29,13 @@ type StringLogger = (...strings: string[]) => any;
 
 const DefaultColorCode = 9
 export class StyledLogger<Logger extends AnyLogger> {
-	constructor(private logger: Logger, private background: ConsoleColor = ConsoleColor.Default, private foreground: ConsoleColor = ConsoleColor.Default) {
+
+	constructor(private logger: Logger, private prefix: string = "", private suffix: string = "", private foreground: ConsoleColor = ConsoleColor.Default, private background: ConsoleColor = ConsoleColor.Default) {
 	}
+	setPrefix(prefix: string) {
+		this.prefix = prefix
+	}
+
 	bg(background: ConsoleColor): StyledLogger<Logger> {
 		this.background = background;
 		return this;
@@ -47,11 +52,16 @@ export class StyledLogger<Logger extends AnyLogger> {
 	}
 	colorLog(...logArgs: Parameters<Logger>) {
 		this.setColors()
-		this.logger(...logArgs)
+		this.log(...logArgs)
 		this.resetAll()
 	}
-
 	styleLog(s: string) {
+		this.styleLogger(this.prefix)
+		this.styleLogger(s)
+		this.styleLogger(this.suffix)
+	}
+
+	private styleLogger(s: string) {
 		const startStyle = "{"
 		const endStyle = "}"
 		const doubleEndStyle = endStyle + endStyle
@@ -105,8 +115,8 @@ export class StyledLogger<Logger extends AnyLogger> {
 
 export class StringStyler extends StyledLogger<StringLogger>{
 	private buffer = ""
-	constructor(background: ConsoleColor = ConsoleColor.Default, foreground: ConsoleColor = ConsoleColor.Default) {
-		super((...strings: string[]) => this.buffer += strings.join(''), background, foreground)
+	constructor(prefix: string = "", suffix: string = "", foreground: ConsoleColor = ConsoleColor.Default, background: ConsoleColor = ConsoleColor.Default) {
+		super((...strings: string[]) => this.buffer += strings.join(''), prefix, suffix, foreground, background)
 	}
 	flush() {
 		let oldBuffer = this.buffer;
@@ -116,13 +126,18 @@ export class StringStyler extends StyledLogger<StringLogger>{
 }
 
 export class BufferedStyledLogger<FlushLogger extends AnyLogger> extends StringStyler {
-	constructor(private flushLogger: FlushLogger, background: ConsoleColor = ConsoleColor.Default, foreground: ConsoleColor = ConsoleColor.Default) {
-		super(background, foreground)
+	constructor(private flushLogger: FlushLogger, prefix: string = "", suffix: string = "", foreground: ConsoleColor = ConsoleColor.Default, background: ConsoleColor = ConsoleColor.Default) {
+		super(prefix, suffix, foreground, background)
 	}
 	flush() {
 		const oldBuffer = super.flush();
 		this.flushLogger(oldBuffer)
 		return oldBuffer;
+	}
+
+	flushLog(s: string) {
+		this.styleLog(s)
+		return this.flush()
 	}
 }
 
