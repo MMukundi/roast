@@ -1,0 +1,42 @@
+# { 1-  } forHelper def
+# { val def func def
+# # Decrement val 
+# val 1- val def
+# # Call the function 
+# func call
+
+# val 1 <
+# # Move on
+# func call
+# } for def
+ 
+{
+	# ... n:int => ... a:int b:int
+
+	# n > 2
+	dup 0 >
+	# n <= 0:  
+	{ 0 = 0 } 
+	# n > 0:  
+	{ 1 - fastFibHelper call 2 copy + 3 2 roll pop }
+	ifelse
+} fastFibHelper def 
+{ 
+	# ... n:int => ... a:int
+	1 - fastFibHelper call + 
+} fastFib def
+{ dup fastFib call swap "fib(%d)=%d\n" pop printf } printFib def
+
+"Enter a number: " print
+input pop stringToInt
+0 {
+	2 copy !=
+	{
+		dup printFib call
+		1+ 
+		printFibs call
+	}
+	if
+} printFibs def
+
+printFibs call

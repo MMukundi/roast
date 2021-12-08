@@ -1,0 +1,15 @@
+"String 1: " print
+input pop
+"String 2: " print
+input pop
+
+# 4 copy
+
+2 copy
+strEq
+{ "not equal"  }
+{ "equal"  }
+ifelse
+pop
+3 1 roll
+"The strings '%s' and '%s' are %s.\n" pop printf
