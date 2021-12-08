@@ -1,37 +1,37 @@
-import { SourceFile } from "./arguments"
+import { CompilerOptions, Options, SourceFile } from "./arguments"
 import { LexerSourceFile } from "./lexer"
-import { BufferedStyledLogger, ConsoleColor } from "./style"
+import { debugLogger, errorLogger, noteLogger, warningLogger } from "./loggers"
+import { Compiler } from "./parser"
 
-const errorStyler = new BufferedStyledLogger(process.stdout.write.bind(process.stdout))
-errorStyler.fg(ConsoleColor.Red)
-const warningStyler = new BufferedStyledLogger(process.stdout.write.bind(process.stdout))
-warningStyler.fg(ConsoleColor.Yellow)
-
-function toastError(errorString: string) {
-	errorStyler.styleLog(`toast {error}: ${errorString}\n`)
-	errorStyler.flush()
-}
-function toastWarning(warning: string) {
-	warningStyler.styleLog(`toast {warn}: ${warning}\n`)
-	warningStyler.flush()
-}
-
-
-toastWarning('toast not implemented')
+noteLogger.flushLog('toast only partially implemented')
 if (!SourceFile) {
-	toastError('no source file provided')
+	errorLogger.flushLog('no source file provided')
 	process.exit()
 }
 
-let sourceFile;
+let compiler;
 try {
-	sourceFile = new LexerSourceFile(SourceFile)
+	compiler = Compiler.fromSource(SourceFile);
 } catch (e: any) {
 	// No such file
 	if (e?.code === "ENOENT") {
-		toastError(`file '${SourceFile}' does not exist`)
+		errorLogger.flushLog(`file '${SourceFile}' does not exist`)
 	} else {
-		toastError(`error reading file '${SourceFile}'`)
+		errorLogger.flushLog(`error reading file '${SourceFile}'`)
 	}
 	process.exit()
+}
+compiler.generateAssembly()
+compiler.write("\ttoastExit 0\n")
+compiler.save()
+compiler.compile()
+try {
+	compiler.run()
+} catch (e) {
+	const error = e as any
+	const pref = '\t> '
+	errorLogger.flushLog(`------------Run Failed----------------`)
+	errorLogger.flushLog(`${pref}Exit Code: ${error.status} `)
+	errorLogger.flushLog(`${pref}Exit Signal: ${error.signal} `)
+	errorLogger.flushLog(`${pref}Exit output: ${error.stderr?.toString() || "N/A"} `)
 }
