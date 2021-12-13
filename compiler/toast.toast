@@ -325,7 +325,7 @@ lexer swap 0 3 1 roll set
 	debugLexer call
 } lexerGetToken def
 
-"examples/Calculate.toast"
+"../examples/Calculate.toast"
 pop initLexer call
 
 lexerGetToken call
