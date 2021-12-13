@@ -1,0 +1,107 @@
+"John, Mary, Suzanne" pop str def
+", "  pop /space def
+
+{ # arr func index
+	dup 3 index length
+	<
+	{
+		pop
+		pop
+		pop
+	}
+	{
+		3 copy
+		3 -1 roll
+		swap
+		get
+		swap
+		call	
+		1 +
+		foreachCore call
+	}
+	ifelse
+} foreachCore def
+{ # arr func 
+	0 foreachCore call
+} foreach def
+
+{
+	# strPtr delimPtr
+	2 copy # strPtr delimPtr strPtr delim
+	readByte # strPtr delimPtr strPtr delimChar
+	swap readByte # strPtr delimPtr delimChar strChar
+	dup # strPtr delimPtr delimChar strChar strChar
+	0 =
+	{
+
+	}
+	{
+		= # strPtr delimPtr (delimChar=strChar)
+		{ # strPtr delimPtr
+			swap 1+ swap # strPtr+1 delimPtr
+			splitSkip call		
+		}
+		{ # strPtr delimPtr
+
+		} ifelse
+	} 
+	ifelse
+} splitSkip def
+{
+	5 copy "-splitLoopStart-\n%d\n%d\n%d\n%d\n%d\n----\n" pop printf
+	# strPtr delimPtr
+	2 copy # strPtr delimPtr strPtr delim
+	readByte # strPtr delimPtr strPtr delimChar
+	swap readByte # strPtr delimPtr delimChar strChar 
+	swap dup # strPtr delimPtr strChar delimChar delimChar
+	0 = # strPtr delimPtr strChar delimChar (delimChar=\0)
+	5 copy "-splitLoop-\n%d\n%d\n%d\n%d\n%d\n----\n" pop printf
+	{
+		# strPtr delimPtr strChar delimChar
+		= # strPtr delimPtr (delimChar=strChar)
+		{
+			# strPtr delimPtr
+			pop 0 # strPtr 0
+		}
+		{
+			# strPtr delimPtr
+			1 + # strPtr delimPtr+1
+			swap 1 + # delimPtr+1 strPtr+1
+			swap # strPtr+1 delimPtr+1
+			splitLoop call
+		} 
+		ifelse
+	}
+	{ # strPtr delimPtr strChar delimChar
+		5 copy "-We're outta here-\n%d\n%d\n%d\n%d\n%d\n-----\n" pop printf
+		pop pop pop
+		1
+	}
+	ifelse
+} splitLoop def
+{
+	#strPtr delim
+	2 copy "-splitStart-\ndelim: %d\nstr: %d\n----\n" pop printf
+	2 copy # strPtr delim strPtrCopy delimCopy
+	
+	splitLoop call # strPtr delim strPtrChanged bool
+	5 copy "Split:\n - Bool %d\n - RestOfDelim: '%s'\n - RestOfStr: '%s'\n - Actual delim: '%s'\n - Acutal str: '%s'\n----\n" pop printf
+	{
+		3 1 roll swap
+	}
+	if
+	pop
+	1 index readByte 0 !=
+	{
+		swap 1+ swap
+		splitCore call
+	}
+	if
+} splitCore def
+{
+	#str delim
+	[ 2 copy splitCore call ]
+} split def
+
+str space split call
+{ "Foreach: %d\n" pop printf } foreach call
