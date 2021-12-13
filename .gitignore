@@ -1,3 +1,8 @@
+
+*
+!/**/
+!*.*
+
 node_modules
 .vscode
 .DS_Store
@@ -6,3 +11,8 @@ node_modules
 
 bootstrap/js
 bin
+
+
+**.asm
+**.o
+!bootstrap/std/*.asm

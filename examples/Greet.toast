@@ -1,0 +1,10 @@
+{ "Hello, world! " print } greetWorld def
+{ 
+	"And who might you be? " print
+	input
+	pop
+	"Why hello, %s! Pleasure to make your acquaintance.\n" pop printf
+} greetName def
+
+greetWorld call
+greetName call

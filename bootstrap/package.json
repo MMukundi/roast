@@ -4,7 +4,7 @@
         "build": "tsc",
         "watchBuild": "tsc -w",
         "compile": "npm run build && node . ",
-        "watchCompile": "nodemon --exec 'npm run build && node .' --watch ./ts -e ts --watch"
+        "watchCompile": "nodemon --exec 'npm run build && node .' --watch ./ts -e ts --"
     },
     "devDependencies": {
         "nodemon": "^2.0.15",

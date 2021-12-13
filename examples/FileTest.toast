@@ -1,0 +1,334 @@
+5 fileBufferSize def
+
+fileBufferSize 1 + array fileBuffer def
+fileBuffer 8 + fileBufferStart def # TODO: Remove offset once I fix arrayz length
+
+fileBufferStart fileBufferSize + fileBufferEnd def
+{ fileBufferStart "File contents:[%s]" pop  printf } printBuffer def
+{ 5 copy "\n--DEBUG--\n%d\n%d\n%d\n%d\n%d\n-END-\n" pop printf } debug def
+{ lexer LexPtr get fileBufferEnd fileBufferStart fileBuffer "Buffers: Array:%d, Start: %d, End: %d, Current: [%d]\n" pop printf } debugBuffers def
+{
+	lexer LexPtr get 
+	lexer LexBytesRead get 
+	lexer LexFileDescriptor get 
+	lexer LexPath get 
+	lexer LexLineOffset get 
+	lexer LexLine get 
+	lexer LexHasNextLine get 
+} pushLexer def
+{
+	LexPtr
+	LexBytesRead
+	LexFileDescriptor
+	LexPath
+	LexLineOffset
+	LexLine
+	LexHasNextLine
+} pushLexerIndecies def
+{ pushLexerIndecies call "Indecies: %d, %d, %d, %d, %d, %d, %d\n" pop printf } debugLexerIndecies def
+{ 
+	pushLexer call
+"Lexer{
+	HasNext:       %d
+	LineNumber:    %d
+	LineOffset:    %d
+	PathPointer:   %d
+	FileDesciptor: %d
+	BytesRead:     %d
+	LexerPointer:  %d
+}\n" 
+	pop printf
+} debugLexer def
+
+10 8 * array lexer def
+# Lexer indecies
+0 LexHasNextLine def
+1 LexLine def
+2 LexLineOffset def
+3 LexPath def
+4 LexFileDescriptor def
+5 LexBytesRead def
+6 LexPtr def
+7 LexTokens def
+8 LexTokenCount def
+9 LexOutputFd def
+
+# Token indecies
+0 TokType def
+1 TokValue def
+
+0 ValueTokenType def
+
+pushLexerIndecies call
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+lexer swap 0 3 1 roll set
+{
+	# filenamePointer
+	dup lexer LexPath set
+	readOpen
+	lexer LexFileDescriptor set
+
+	1 lexer LexHasNextLine set
+
+	"./out.asm" pop writeOpen 
+	lexer LexOutputFd set
+
+	4096 array lexer LexTokens set
+
+	fillLexerBuffer call
+	# TODO: This gets rid of the number of bytes read. Later, use this to check if the file ended
+	# lexer LexBytesRead get
+	# "Inited lexer with %d bytes\n" pop printf
+} initLexer def
+{
+	lexer LexHasNextLine get
+	{
+		lexer LexFileDescriptor get
+		fileBufferStart fileBufferSize readFileTo
+		lexer LexBytesRead set
+
+		# lexer LexBytesRead get
+		# "\nFilled buffer. Read %d bytes\n" pop printf
+		
+		lexer LexBytesRead get fileBufferSize = 
+		lexer LexHasNextLine set
+
+		# fileBufferStart 
+		# dup readByte swap
+		# "FirstByte: [" print
+		# 1
+		# print
+		# "](" print
+		# printNum
+		# ") => " print
+
+		# fileBufferStart
+		# lexer LexBytesRead get
+		# +
+		# 1 -
+
+		# dup readByte swap
+
+		# "LastByte: [" print
+		# 1
+		# print
+		# "](" print
+		# printNum
+		# ")\n" print
+	} if
+	# pop
+	fileBufferStart lexer LexPtr set
+} fillLexerBuffer def
+{ lexerIsDone call lexer LexPtr get "Lexer contents:[%s](Done?%d)\n" pop  printf  } printLexerBuffer def
+{ # count
+	# if there are no more lines
+	lexer LexHasNextLine get
+	1 swap -
+	# dup printNum
+
+	# and either the ponter is at the end of the buffer
+	# (
+	lexer LexPtr get 
+	fileBufferStart -
+	lexer LexBytesRead get = 
+	
+	# )
+	# dup printNum
+	*
+} lexerIsDone def
+
+{  # curr end
+	2 copy <
+	{
+		pop pop 
+	}
+	{
+		1 index readByte '\n' =
+		{
+			lexer LexLine get
+			1+
+			lexer LexLine set
+			-1 lexer LexLineOffset set
+		} if
+		lexer LexLineOffset get
+		1+
+		lexer LexLineOffset set
+		swap 1 + swap
+		lexUpdatePosition call
+	} ifelse
+} lexUpdatePosition def
+{ # lexerPtr 
+	dup
+	fileBufferStart
+	lexer LexBytesRead get
+	+ <
+	# debugLexer call
+	{
+		lexer LexPtr get
+		lexer LexBytesRead get fileBufferStart +
+		lexUpdatePosition call
+
+		lexer LexHasNextLine get
+		{
+			pop 
+			fileBufferStart
+			lexer LexBytesRead get
+			+
+			lexer LexPtr set
+		}
+		{
+			fillLexerBuffer call
+			fileBufferSize -
+			advanceLexerLoop call
+		}
+		ifelse
+	}
+	{
+		dup
+		lexer LexPtr get
+		swap
+		lexUpdatePosition call
+
+		lexer LexPtr set
+	} ifelse
+} advanceLexerLoop def 
+{ # count
+	lexer LexPtr get +
+	advanceLexerLoop call
+	
+	fileBufferStart
+	lexer LexBytesRead get +
+	dup
+	lexer LexPtr get 
+	<
+	{
+		pop
+	}
+	{
+		# debugBuffers call
+		lexer LexPtr set 
+		# debugBuffers call
+	} ifelse	
+} advanceLexer def
+
+{ #secondPred firstPred
+	call
+	{
+		0
+	}
+	{
+		call
+	}
+	ifelse
+
+} shortCircuitAnd def
+
+{ lexer LexPtr get readByte } lexerCurrentChar def
+{ #Func
+
+	# lexerCurrentChar call # Func func byte
+	# swap # func byte func
+	# call # func bool
+	# lexerIsDone call !  # func bool lexerNotDone
+	# *  # func (bool&lexerNotDone)
+	lexerIsDone call !
+	{
+		0
+	}
+	{
+		dup # Func func
+		lexerCurrentChar call swap 
+		call
+	}
+	ifelse
+
+	dup printNum
+	{
+		pop
+	}
+	{
+		1 advanceLexer call
+		advanceLexerWhile call
+	} ifelse
+} advanceLexerWhile def
+
+{ # char
+	getDigit call 
+	dup 10 <
+	swap -1 >
+} isDigit def
+
+{ # char
+	'0' -
+} getDigit def
+
+{ # char
+	# Bulk this up
+	0 index ' ' =
+	1 index '\n' =
+	2 index '\t' =
+	3 index '\r' =
+	+ + +
+	swap pop
+} isWhitespace def
+
+{ 
+	isWhitespace advanceLexerWhile call
+	lexerIsDone call !
+	# dup printNum
+	{
+		"Digits\n" print
+		lexer LexPtr get readByte
+		dup isDigit call
+		{
+			pop
+			0 { #value [func] char
+				3 2 roll
+				swap getDigit call # [func] value charDigit
+				dup printNum
+				# debugLexer call
+				dup 
+				10 < 
+				1 index 0 >= 
+				*
+				{
+					pop 0
+				}
+				{
+					swap 10 *
+					+ # [func] (10*value+charDigit)
+					1
+				} ifelse
+				3 -1 roll
+				swap
+			} advanceLexerWhile call
+			"\tmov r8, %d\n\tpush r8\n" pop
+			lexer LexOutputFd get
+			fprintf
+			# lexer LexOutputFd get
+			# dup printNum
+			
+
+			# "\tpush %d\n" pop printf
+
+		} if
+	} if
+	debugLexer call
+} lexerGetToken def
+
+"examples/Calculate.toast"
+pop initLexer call
+
+lexerGetToken call
+lexerGetToken call
+lexerGetToken call
+

@@ -21,7 +21,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	[TokenType.CloseList](compiler, { location }) {
 		// Pop a bunch of stuff from the list
 		// compiler.popStack(compiler.listStack, "r8")
-		compiler.assemblySource += `\ttoastPopUntilMark\n`
+		compiler.assemblySource += `\ttoastArrayUntilMark\n`
 		// compiler.errorHere("compiling CloseList tokens not yet implemented", location)
 	},
 	[TokenType.List](compiler, { location }) {
@@ -77,6 +77,11 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastStackCompare ne\n`
 				return;
 
+			// TODO: RETOOL NEGATION 
+			case '!':
+				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
+				return;
+
 			/// StackOps
 			case 'pop':
 				compiler.assemblySource += `\ttoastPop\n`
@@ -94,21 +99,66 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\t${compiler.functionCall} roll\n`
 				return
 
+			//FILE OPS, UNDER DEVELOOMENT
+			case 'readOpen':
+				compiler.assemblySource += `\ttoastStackReadOpenFile\n`
+				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				return;
+			case 'writeOpen':
+				compiler.assemblySource += `\ttoastStackWriteOpenFile\n`
+				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				return;
+
+			case 'readFile':
+				compiler.assemblySource += `\ttoastCallFunc read_file\n`
+				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				return;
+			case 'readFileTo':
+				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`
+				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				return;
+			case 'array':
+				compiler.assemblySource += `\ttoastStackCreateArray\n`
+				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				return;
+
+			case 'length':
+				// TODO: Change array length to index negative 1
+				compiler.assemblySource += `\tpop r8\n\tmov r8, [r8]\n\tpush r8\n`
+				return;
+
+
 			/// IO Ops
+
+
 			case 'print':
 				compiler.assemblySource += `\ttoastStackPrint\n`
 				return;
 
+
+			case 'fprint':
+				compiler.assemblySource += `\tpop rdi\t\ntoastStackPrint rdi\n`
+				return;
+
 			case 'printf':
 				compiler.assemblySource += `\t${compiler.functionCall} print_f\n`
+				return;
+			case 'fprintf':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_f\n`
 				return;
 
 			/// IO Ops
 			case 'input':
 				compiler.assemblySource += `\t${compiler.functionCall} input\n`
 				return
+			case 'filePrintNum':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_num\n`
+				return
 			case 'printNum':
 				compiler.assemblySource += `\t${compiler.functionCall} print_num\n`
+				return
+			case 'filePrintNumBase':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_num_base\n`
 				return
 			case 'printNumBase':
 				compiler.assemblySource += `\t${compiler.functionCall} print_num_base\n`
@@ -243,13 +293,13 @@ export class Compiler {
 		this.nextToken = token
 
 		//? Fun note: This replacement enables tail recursion :O
-		// this.functionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallFunc" : "toastCallFunc";
-		// this.stackFunctionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallStackFunc" : "toastCallStackFunc";
-		this.functionCall = "toastCallFunc";
-		this.stackFunctionCall = "toastCallStackFunc";
+		this.functionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallFunc" : "toastCallFunc";
+		this.stackFunctionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallStackFunc" : "toastCallStackFunc";
+		// this.functionCall = "toastCallFunc";
+		// this.stackFunctionCall = "toastCallStackFunc";
 
 		if (curr) {
-			this.assemblySource += `\n\t%line ${curr.location.line}+1 to\n`
+			this.assemblySource += `\n\t%line ${curr.location.line}+1 ${this.source.name}\n`
 			this.assemblySource += `\t;;--- ${unescapeString(tokenString(curr))} ---\n`
 			compilerProcessor[curr.type](this, curr as any)
 		}
@@ -280,7 +330,7 @@ export class Compiler {
 
 	compile() {
 		if (this.outputBasename) {
-			execSync(`nasm ${this.outputBasename}.asm -fmacho64`, {
+			execSync(`nasm ${this.outputBasename}.asm -fmacho64 -g`, {
 				stdio: 'inherit'
 			})
 
