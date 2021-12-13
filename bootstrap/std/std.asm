@@ -1,3 +1,5 @@
+%include "/Users/marcelmukundi/Desktop/toast/toast/bootstrap/std/system.asm"
+
 %define AddressBytes 8
 %define AddressSize qword
 %define DeclarePointer dq
@@ -48,17 +50,21 @@ toastCurrentString: db %1, 0
 %endmacro
 ;; -- toastPrintString string [length?] --
 ;; -- Prints the last-defined string
-%macro toastPrintString 1-2
-	lea r8,[%1]
+%macro toastPrintString 1-2 0
+	toastFilePrintString 1, %1, %2
+%endmacro
+; fd str strlen
+%macro toastFilePrintString 2-3
+	lea r8,[%2]
 	push r8
-%if %0 = 1
+%if %0 = 2
 	push r8
 	toastCallFunc str_len
-%elif %0 = 2
-	mov r8,%2
+%elif %0 = 3
+	mov r8, %3
 	push r8
 %endif
-	toastStackPrint
+	toastStackPrint %1
 %endmacro
 ;; -------- [End(String Macros)] --------
 
@@ -307,13 +313,14 @@ toastCreateBuffer %1, %%buffer
 	__SECT__
 %endmacro
 
-%macro toastStackPrint 0
+%macro toastStackPrint 0-1 1
 	;; -- Print string from stack -- 
-	mov rax, 0x02000004
-	mov rdi, 1
+	mov rdi, %1
 	pop rdx
 	pop rsi
-	syscall
+	; mov rax, 0x2000004
+	; syscall
+	Syscall.Write
 %endmacro
 
 
@@ -484,17 +491,28 @@ cmove r9, r10
 ; %assign ToastDebug 0
 ; ToastDefineDebug
 ; toastDebugRegisters
+%macro toastCreateArray 1
+	toastStackAddressPush ArrayStackPointer, 0, %1
+	toastStackAddressPush ArrayStackPointer, %1
+	mov r9, AddressSize[ArrayStackPointer]
+	push r9
+%endmacro
+%macro toastStackCreateArray 0
+	pop r9
+	toastCreateArray r9
+%endmacro
+
 %macro toastPushMark 0
 	;; -- exit --
 	toastStackAddressPush MarkStackPointer, rsp
 %endmacro
-%macro toastPopUntilMark 0
+%macro toastArrayUntilMark 0
 	;; -- exit --
 	toastStackPointerPop MarkStackPointer, r8
 	xor r9, r9
-%%pop_until_loop:
+%%array_until_loop:
 	cmp r8, rsp
-	je %%pop_until_done
+	je %%array_until_done
 
 	pop r10
 	inc r9
@@ -505,14 +523,22 @@ cmove r9, r10
 	pop r9
 	pop r8
 	
-	jmp %%pop_until_loop
+	jmp %%array_until_loop
 
-%%pop_until_done:
+%%array_until_done:
 
 	toastStackAddressPush ArrayStackPointer, r9
 	mov r9, AddressSize[ArrayStackPointer]
 	; mov r9, AddressSize[r9]
 	push r9
+%endmacro
+%macro toastPopUntilMark 0
+	;; -- exit --
+	toastStackPointerPop MarkStackPointer, r8
+%%pop_until_loop:
+	cmp r8, rsp
+	jne %%pop_until_loop
+
 %endmacro
 ; 0x00007ff7bfeff978
 %macro toastExit 0-1
@@ -523,9 +549,10 @@ cmove r9, r10
 	;; -- exit with arg --
 	mov rdi, %1
 	%endif
-	mov rax, 0x2000001
 	xor rsi, rsi
-	syscall
+	; mov rax, 0x2000001  ; SYS_EXIT
+	; syscall
+	Syscall.Exit
 %endmacro
 %macro toastStackExit 0
 	;; -- exit --
@@ -533,12 +560,59 @@ cmove r9, r10
 	toastExit rdi
 %endmacro
 %macro toastPrint 0
-	mov rax, 0x02000004
 	mov rdi, 1
 	pop rdx
 	pop rsi
-	syscall
+	; mov rax, 0x2000004  ; SYS_WRITE
+	; syscall
+	Syscall.Write
 %endmacro
+
+%macro toastReadOpenFile 1
+	mov rdi, %1
+	mov rsi, 0644o
+	mov rdx, 0
+	Syscall.Open
+
+	push rax
+%endmacro
+%macro toastWriteOpenFile 1
+	mov rdi, %1
+	; mov rsi, 0644o
+	mov rsi, 0202h
+	mov rdx, 0
+	; mov rax, 0x2000005 ; SYS_OPEN
+	; syscall
+	Syscall.Open
+
+
+	; mov rax, 5       ; Open system call = 5
+	; push 0     ; Mode = 0
+	; push 2     ; Read/Write flag
+	; push %1  ; Path
+	; sub rsp, 4       ; Reserved space for system call
+	; int 0x80
+
+	; int 0x80
+	push rax
+%endmacro
+
+%macro toastStackReadOpenFile 0
+	pop r8
+	toastReadOpenFile r8
+%endmacro
+%macro toastStackWriteOpenFile 0
+	pop r8
+	toastWriteOpenFile r8
+%endmacro
+%macro toastFileStats 1
+
+%endmacro
+%macro toastStackFileStats 0
+	pop r8
+	toastFileStats r8
+%endmacro
+
 	section .data
 Constant_Zero: DeclarePointer 0
 Constant_One: DeclarePointer 1
@@ -552,17 +626,32 @@ Constant_One: DeclarePointer 1
 toastCreateStack 1024, ReturnStack, ReturnStackPointer
 toastCreateStack 1024, VariableStack, VariableStackPointer
 toastCreateStack 1024, MarkStack, MarkStackPointer
-toastCreateStack 1024, ArrayStack, ArrayStackPointer
+
+toastCreateStack 8192, ArrayStack, ArrayStackPointer
 toastCreateStack 16384, StringHeap, StringHeapPointer
 
 toastDefineString `0123456789ABCDEF`, DigitString
 toastDefineString `\n`, NewlineString
 
 	section .text
+file_print_num:
+	pop rdi
+	jmp print_num_base_10
 print_num:
+	mov rdi, 1
+
+print_num_base_10:
 	mov rbx, 10
 	push rbx
+	jmp print_num_base_core
+
+file_print_num_base:
+	pop rdi
+	jmp print_num_base_core
+
 print_num_base:
+	mov rdi, 1
+print_num_base_core:
 	pop rbx
 	pop rax
 	enter 32+8+1, 0
@@ -616,10 +705,8 @@ print_num_loop:
 	add AddressSize[rbp-9],1
 
 print_num_print:
-	mov rax, 33554436
-	mov rdi, 1
 	mov rdx, AddressSize[rbp-9]
-	syscall
+	Syscall.Write
 	leave
 
 	toastReturn
@@ -837,22 +924,51 @@ find_var_end:
 	push rax
 	toastReturn
 
-input:
+
+%macro toastReadToCore 2
+	; (ptr,size)
+	mov rsi, %1
+	mov rdx, %2
+	; mov rax, 0x2000003 ; SYS_READ
+	; syscall
+	Syscall.Read
+	
+	push rax
+%endmacro
+
+%macro toastHeapReadCore 0
 	lea r8, [StringHeapPointer]
 	mov r8, [r8]
 	mov r9, StringHeap
 
-	mov rax, 0x2000003
-	xor edi, edi
 	mov rsi, r8
 	; TODO: Make the 1024 a variable or equ or something 
 	mov rdx, 1024; some length
 	add rdx, r9
 	sub rdx, r8
-	syscall
-	
+
+	toastReadToCore rsi, rdx
+	pop rax
 	push r8
 	push rax
+%endmacro
+
+read_file_to:
+	pop rdx ; size
+	pop rsi ; ptr
+	pop rdi
+	toastReadToCore rsi, rdx
+	toastReturn
+
+read_file:
+	pop rdi
+	toastHeapReadCore
+	toastReturn
+
+input:
+	xor rdi, rdi
+
+	toastHeapReadCore
 
 	;; Replace newline with \\0
 	add r8, rax
@@ -864,7 +980,13 @@ input:
 	toastReturn
 
 
+file_print_f:
+	pop rdi
+	jmp print_f_core
 print_f:
+	mov rdi,1
+
+print_f_core:
 	;; Iterate until next formatting character
 	;; -- If s: print string
 	;; -- If d: print_num
@@ -899,15 +1021,17 @@ print_f_find_format:
 	
 	;; -- Print what came before:
 	sub r9,r10
+	push rdi
 	push rax
 	push r10
 	push r8
 	push r9
-	toastPrintString r8, r9
+	toastFilePrintString rdi, r8, r9
 	pop r9
 	pop r8
 	pop r10
 	pop rax
+	pop rdi
 	add r9,r10
 
 	
@@ -934,20 +1058,23 @@ print_f_num:
 	pop rax
 	push r8
 	push rax
-	toastCallFunc print_num
+	push rdi
+	toastCallFunc file_print_num
 	pop r8
 	jmp print_f_next
 print_f_str:
 	pop rax
+	push rdi
 	push r8
-	toastPrintString rax
+	toastFilePrintString rdi,rax 
 	pop r8
+	pop rdi
 	jmp print_f_next
 print_f_next:
 	xor r9, r9
 	jmp print_f_find_format
 print_f_done:
-	toastPrintString r8, r9
+	toastFilePrintString rdi, r8
 print_f_error:
 	toastReturn
 
@@ -1024,7 +1151,8 @@ struc StoredVariable
 	.value: ReservePointer 1
 endstruc
 
+; struc StoredArray, -AddressSize
 struc StoredArray
 	.size: ReservePointer 1
-	.data: ReservePointer 1
+	.dataStart: ReservePointer 1
 endstruc
