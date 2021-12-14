@@ -277,7 +277,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		}
 
 
-		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(name)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n${compiler.functionCall} find_var\n`
+		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(name)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\t${compiler.functionCall} find_var\n`
 
 		// TODO: Remove when we figure out what to do with that boolean
 		// compiler.assemblySource += `\tpop r8; Bool\n\tpop r9 ; Value\n\tcmp r8, 0\n\t;; -- Only dereference defined variables, not variable names ;; \n\tcmove r9, [r9 + StoredVariable.value]\n\tpush r9\n`
@@ -361,6 +361,10 @@ export class Compiler {
 			const t = this.source.readToken()
 			if (t) {
 				this.writeToken(t)
+			}
+
+			if (this.source.includeDone() && this.source.includes) {
+				this.source.deepestSource.includedIn.includes = null
 			}
 		}
 		this.writeToken(this.lastToken)

@@ -1,9 +1,10 @@
 import assert from "assert"
-import { readFileSync } from "fs"
+import { openSync, readFileSync } from "fs"
 import { makeToken, SourceLocation, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace } from "./utils"
 
-const NegativeSign = "-"
+const NegativeSign = '-'
+const IncludeSign = '%'
 // TODO: This was previously abstract; was there a reason why?
 export class LexerSource {
 	/** The raw text of this source */
@@ -20,27 +21,34 @@ export class LexerSource {
 		/** The position from the front of the line the lexer is in */
 		column: 0
 	}
+	includes: LexerSource = null;
+	includedIn: LexerSource = null;
+
+	get deepestSource(): LexerSource {
+		return this.includes ? this.includes.deepestSource : this
+	}
 
 	/** The current character. */
 	current() {
-		return this.text[this.index]
+		return this.deepestSource.text[this.deepestSource.index]
 	}
 	/** Moves forward in the text one character. */
 	advanceOne() {
+
 		let current = this.current()
 		if (current === "\n") {
-			this.location.line++
-			this.location.column = 0
+			this.deepestSource.location.line++
+			this.deepestSource.location.column = 0
 		} else {
-			this.location.column++
+			this.deepestSource.location.column++
 		}
-		this.index++
+		this.deepestSource.index++
 		return current
 	}
 	/** Moves forward in the text. */
 	advance(count: number) {
 		let skipped = ""
-		for (let i = 0; !this.done() && i < count; i++) {
+		for (let i = 0; !this.includeDone() && i < count; i++) {
 			skipped += this.advanceOne()
 		}
 		return skipped
@@ -48,7 +56,7 @@ export class LexerSource {
 	/** Moves forward in the text as long as a condition is met. */
 	advanceWhile(predicate: (char: string) => boolean) {
 		let skipped = ""
-		while (!this.done() && predicate(this.current())) {
+		while (!this.includeDone() && predicate(this.current())) {
 			skipped += this.advanceOne()
 		}
 		return skipped
@@ -67,22 +75,48 @@ export class LexerSource {
 	}
 	/** Returns a character relatively indexed from the current one. */
 	get(offset: number = 0) {
-		return this.text[this.index + offset]
+		return this.deepestSource.text[this.deepestSource.index + offset]
 	}
 
 	/** Returns a string representing the current location in the lexer source. */
 	locationString(location: SourceLocation) {
-		return `${this.name}:${location.line + 1}:${location.column + 1}`
+		return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
 	}
 
 	/** Returns whether or not the lexer source is completely consumed. */
 	done() {
 		return this.index >= this.text.length
 	}
+	includeDone() {
+		return this.deepestSource.index >= this.deepestSource.text.length
+	}
+
+	readStringLiteral() {
+		const stringLiteral: string[] = []
+		let escapeNext = false
+		this.advanceOne()
+		this.advanceWhile(() => {
+			const nextChar = this.current()
+			// stringLiteral.push(nextChar)
+			if (escapeNext) {
+				stringLiteral.push(escapeChar(nextChar))
+				escapeNext = false;
+				return true;
+			} else if (nextChar === '\\') {
+				escapeNext = true
+				return true;
+			} else if (nextChar !== '"') {
+				stringLiteral.push(nextChar)
+				return true;
+			}
+			return false
+		})
+		return stringLiteral.join("")
+	}
 
 	/** Returns the next token in the lexer source. */
 	readToken() {
-		assert(!this.done(), "Tried to read token after end of file")
+		assert(!this.includeDone(), "Tried to read token after end of file")
 
 		let currentChar;
 		// Skip comments
@@ -91,7 +125,7 @@ export class LexerSource {
 			this.advanceUntilChar("\n")
 			this.skipWhitespace()
 		}
-		if (this.done()) {
+		if (this.includeDone()) {
 			return
 		}
 		const tokenLocation = { ...this.location }
@@ -129,47 +163,42 @@ export class LexerSource {
 				return makeToken(TokenType.Value, tokenLocation, escapeChar(char).charCodeAt(0))
 			}
 			case "\"": {
-				const stringLiteral: string[] = []
-				let escapeNext = false
-				this.advanceOne()
-				this.advanceWhile(() => {
-					const nextChar = this.current()
-					// stringLiteral.push(nextChar)
-					if (escapeNext) {
-						stringLiteral.push(escapeChar(nextChar))
-						escapeNext = false;
-						return true;
-					} else if (nextChar === '\\') {
-						escapeNext = true
-						return true;
-					} else if (nextChar !== '"') {
-						stringLiteral.push(nextChar)
-						return true;
-					}
-					return false
-				})
+				const stringLiteral = this.readStringLiteral()
 				if (this.current() !== '"') {
 					throw ("Unterminated string literal")
 				}
 				this.advanceOne()
 				if (this.current() === 'c') {
 					this.advanceOne()
-					return makeToken(TokenType.CString, tokenLocation, stringLiteral.join(""))
+					return makeToken(TokenType.CString, tokenLocation, stringLiteral)
 				}
-				return makeToken(TokenType.String, tokenLocation, stringLiteral.join(""))
+				return makeToken(TokenType.String, tokenLocation, stringLiteral)
 			}
 		}
 
 		// Testing for unary negation
-		let lastCharMinus = false
-		if (currentChar == NegativeSign) {
-			lastCharMinus = true
+		let firstChar = currentChar
+		if (currentChar == NegativeSign || currentChar == IncludeSign) {
+			firstChar = currentChar
 			this.advanceOne()
 			currentChar = this.current()
 		}
 
 		let currentCharAsDigit = digitCode(currentChar)
-		if (isDigitCode(currentCharAsDigit)) {
+		if (firstChar == "%") {
+			if (currentChar == "\"") {
+				const includePath = this.readStringLiteral()
+				if (this.current() !== '"') {
+					throw ("Unterminated include path")
+				}
+				this.advanceOne()
+				this.includes = new LexerSourceFile(includePath);
+				this.includes.includedIn = this;
+				return
+			}
+			throw ("Invalid preprocessor command")
+		}
+		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
 			this.advanceOne()
 
@@ -198,14 +227,14 @@ export class LexerSource {
 				})
 				value += decimalPart
 			}
-			if (lastCharMinus) {
+			if (firstChar == "-") {
 				value *= -1
 			}
 			return makeToken(TokenType.Value, tokenLocation, value)
 		} else {
 			const name: string[] = []
 
-			if (lastCharMinus)
+			if (firstChar == "-")
 				name.push(NegativeSign)
 
 			this.advanceWhile(() => {
