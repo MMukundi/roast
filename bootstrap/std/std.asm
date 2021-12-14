@@ -315,12 +315,23 @@ toastCreateBuffer %1, %%buffer
 
 %macro toastStackPrint 0-1 1
 	;; -- Print string from stack -- 
+	;
+	; toastSwap rax, r8
+	
+	; mov rdi, %1
+	; push rdi
+	; mov r8, Syscode.Write
+	; push r8
+	; toastStackSyscall 3
+
+	; TODO: See if this can migrate to the 'stacksyscall' system
 	mov rdi, %1
 	pop rdx
 	pop rsi
-	; mov rax, 0x2000004
-	; syscall
+	; ; ; mov rax, 0x2000004
+	; ; ; syscall
 	Syscall.Write
+	; toastSwap
 %endmacro
 
 
@@ -415,11 +426,11 @@ cmove r9, r10
 
 %1 r9
 %endmacro
-%macro toastSwap 0
-	pop r8
-	pop r9
-	push r8
-	push r9
+%macro toastSwap 0-2 r8, r9
+	pop %1
+	pop %2
+	push %1
+	push %2
 %endmacro
 
 %macro toastDup 0
@@ -559,12 +570,13 @@ cmove r9, r10
 	pop rdi
 	toastExit rdi
 %endmacro
+
 %macro toastPrint 0
 	mov rdi, 1
 	pop rdx
 	pop rsi
-	; mov rax, 0x2000004  ; SYS_WRITE
-	; syscall
+	; ; mov rax, 0x2000004  ; SYS_WRITE
+	; ; syscall
 	Syscall.Write
 %endmacro
 
@@ -605,12 +617,63 @@ cmove r9, r10
 	pop r8
 	toastWriteOpenFile r8
 %endmacro
-%macro toastFileStats 1
+
+%macro toastSyscall 1-7
+	%if %0 > 1
+	mov rdi, %2
+	%endif
+	%if %0 > 2
+	mov rsi, %3
+	%endif
+	%if %0 > 3
+	mov rdx, %4
+	%endif
+	%if %0 > 4
+	mov r10, %5
+	%endif
+	%if %0 > 4
+	mov r8, %6
+	%endif
+	%if %0 > 4
+	mov r9, %7
+	%endif
+	Syscall. %+ %1
+%endmacro
+
+%macro toastStackSyscall 1
+	; SyscallName, argC, args to skip
+	%if %1 > 0
+	mov rdi, [rsp+ 1 * AddressBytes]
+	%endif
+	%if %1 > 1
+	mov rsi, [rsp+ 2 * AddressBytes]
+	%endif
+	%if %1 > 2
+	mov rdx, [rsp+ 3 *AddressBytes]
+	%endif
+	%if %1 > 3
+	mov r10, [rsp+ 4 *AddressBytes]
+	%endif
+	%if %1 > 4
+	mov r8, [rsp+ 5 * AddressBytes]
+	%endif
+	%if %1 > 5
+	mov r9, [rsp+ 6 * AddressBytes]
+	%endif
+
+	mov rax, [rsp]
+	syscall
+	
+	lea rsp, [rsp+ (%1+1)*AddressBytes]
+	
+	; TODO: Think of a beeter way to handle assembly return values
+	push rdx
+	push rax
 
 %endmacro
-%macro toastStackFileStats 0
-	pop r8
-	toastFileStats r8
+
+%macro toastExecCommand 2
+	; File, args
 %endmacro
 
 	section .data
