@@ -152,6 +152,10 @@ export class LexerSource {
 					throw ("Unterminated string literal")
 				}
 				this.advanceOne()
+				if (this.current() === 'c') {
+					this.advanceOne()
+					return makeToken(TokenType.CString, tokenLocation, stringLiteral.join(""))
+				}
 				return makeToken(TokenType.String, tokenLocation, stringLiteral.join(""))
 			}
 		}

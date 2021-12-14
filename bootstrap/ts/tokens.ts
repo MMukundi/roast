@@ -21,6 +21,9 @@ export enum TokenType {
 	/** "^["]+" */
 	String,
 
+	/** "^["]+" */
+	CString,
+
 	/** [ ...Tokens ] */
 	List,
 
@@ -44,6 +47,7 @@ export type TokenValues = {
 	[TokenType.CodeBlock]: TokenList
 	[TokenType.List]: TokenList
 	[TokenType.String]: string
+	[TokenType.CString]: string
 }
 /**  The strings for the tokens which have specific string constants */
 const tokenStringConstants = {
