@@ -39,6 +39,49 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	},
 	[TokenType.Name](compiler, { value: name, location }) {
 		switch (name) {
+			// SYSTEM
+			case 'ExitSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Exit\n\tpush r8\n`
+				return;
+			case 'ForkSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Fork\n\tpush r8\n`
+				return;
+			case 'WriteSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Write\n\tpush r8\n`
+				return;
+			case 'OpenSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Open\n\tpush r8\n`
+				return;
+			case 'ExecSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Exec\n\tpush r8\n`
+				return;
+			case 'WaitSyscode':
+				compiler.assemblySource += `\tmov r8, Syscode.Wait4\n\tpush r8\n`
+				return;
+
+			case 'syscall0':
+				compiler.assemblySource += `\ttoastStackSyscall 0\n`
+				// compiler.assemblySource += `\tpop rax\n\tsyscall\n\tpush rax\n`
+				return;
+			case 'syscall1':
+				compiler.assemblySource += `\ttoastStackSyscall 1\n`
+				return;
+			case 'syscall2':
+				compiler.assemblySource += `\ttoastStackSyscall 2\n`
+				return;
+			case 'syscall3':
+				compiler.assemblySource += `\ttoastStackSyscall 3\n`
+				return;
+			case 'syscall4':
+				compiler.assemblySource += `\ttoastStackSyscall 4\n`
+				return;
+			case 'syscall5':
+				compiler.assemblySource += `\ttoastStackSyscall 5\n`
+				return;
+			case 'syscall6':
+				compiler.assemblySource += `\ttoastStackSyscall 6\n`
+				return;
+
 			/// Math
 			case '+':
 				compiler.assemblySource += `\ttoastStackCompute add\n`
@@ -189,6 +232,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 			case 'def':
 				compiler.assemblySource += `\ttoastDefineVariable\n`
 				return;
+
 			// New commands
 
 			case 'exit':
@@ -247,6 +291,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	},
 	[TokenType.String](compiler, { value: str }) {
 		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\tmov r8, toastCurrentStringLength\n\tpush r8\n`
+	},
+	[TokenType.CString](compiler, { value: str }) {
+		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n`
 	},
 	[TokenType.Value](compiler, { value }) {
 		// compiler.errorHere("compiling Value tokens not yet implemented")
