@@ -17,6 +17,7 @@ fileBufferStart fileBufferSize + fileBufferEnd def
 	lexer LexHasNextLine get 
 } pushLexer def
 {
+
 	LexPtr
 	LexBytesRead
 	LexFileDescriptor
@@ -25,6 +26,7 @@ fileBufferStart fileBufferSize + fileBufferEnd def
 	LexLine
 	LexHasNextLine
 } pushLexerIndecies def
+
 { pushLexerIndecies call "Indecies: %d, %d, %d, %d, %d, %d, %d\n" pop printf } debugLexerIndecies def
 { 
 	pushLexer call
@@ -54,23 +56,25 @@ fileBufferStart fileBufferSize + fileBufferEnd def
 9 LexOutputFd def
 
 # Token indecies
-0 TokType def
-1 TokValue def
+# 0 TokType def
+# 1 TokValue def
 
-0 ValueTokenType def
+# 0 ValueTokenType def
 
-pushLexerIndecies call
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
 
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
+0 lexer LexHasNextLine set
+0 lexer LexLine set
+0 lexer LexLineOffset set
 
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
-lexer swap 0 3 1 roll set
+0 lexer LexPath set
+0 lexer LexFileDescriptor set
+0 lexer LexBytesRead set
+
+0 lexer LexPtr set
+0 lexer LexTokens set
+0 lexer LexTokenCount set
+0 lexer LexOutputFd set
+
 {
 	# filenamePointer
 	dup lexer LexPath set
@@ -79,8 +83,18 @@ lexer swap 0 3 1 roll set
 
 	1 lexer LexHasNextLine set
 
-	"./out.asm" pop writeOpen 
+	"./out.asm" pop writeOpen
 	lexer LexOutputFd set
+# TODO: REPLACE STDLIB PATH WITH ACCURATE PATH
+"%include \"./std/std.asm\"
+	global _main
+	default rel
+
+	section .text
+_main:
+"
+lexer LexOutputFd get
+fprint
 
 	4096 array lexer LexTokens set
 
@@ -251,7 +265,6 @@ lexer swap 0 3 1 roll set
 	}
 	ifelse
 
-	dup printNum
 	{
 		pop
 	}
@@ -265,6 +278,7 @@ lexer swap 0 3 1 roll set
 	getDigit call 
 	dup 10 <
 	swap -1 >
+	*
 } isDigit def
 
 { # char
@@ -281,20 +295,63 @@ lexer swap 0 3 1 roll set
 	swap pop
 } isWhitespace def
 
+{ # char
+	# 0 index '+' =
+	# 1 index '-' =
+	# 2 index '*' =
+	# 3 index '/' =
+	# 4 index '%' =
+	# + + + +
+	# swap pop
+	0 index '+' =
+	1 index '-' =
+	# 2 index '*' =
+	# 3 index '/' =
+	# 4 index '%' =
+	+
+	swap pop
+} isOperation def
+
+{ lexer LexOutputFd get fprint } lexOutPrint def
+{ lexer LexOutputFd get fprintf } lexOutPrintf def
+
 { 
 	isWhitespace advanceLexerWhile call
 	lexerIsDone call !
 	# dup printNum
 	{
-		"Digits\n" print
-		lexer LexPtr get readByte
+		lexer LexPtr get
+		"Processing char [" print dup 1 print "] => " print
+		readByte
 		dup isDigit call
+		{
+			dup isOperation call
+			{
+				dup '+' =
+				{
+					dup '-' =
+					{
+						"Invalid operation [" print 1 print "]" print						
+					}
+					{
+						"Operation[-]" print
+						"\ttoastStackCompute sub\n"
+						lexOutPrint call
+					} ifelse
+				}
+				{
+					"Operation[+]" print
+					"\ttoastStackCompute add\n"
+					lexOutPrint call
+				} ifelse
+			} if
+			1 advanceLexer call
+		}
 		{
 			pop
 			0 { #value [func] char
 				3 2 roll
 				swap getDigit call # [func] value charDigit
-				dup printNum
 				# debugLexer call
 				dup 
 				10 < 
@@ -311,24 +368,36 @@ lexer swap 0 3 1 roll set
 				3 -1 roll
 				swap
 			} advanceLexerWhile call
+			dup "Number [%d]" pop printf
 			"\tmov r8, %d\n\tpush r8\n" pop
-			lexer LexOutputFd get
-			fprintf
+			lexOutPrintf call
 			# lexer LexOutputFd get
 			# dup printNum
 			
 
 			# "\tpush %d\n" pop printf
 
-		} if
+		} ifelse
 	} if
-	debugLexer call
+	"\n" print
 } lexerGetToken def
 
-"../examples/Calculate.toast"
+{
+	lexerGetToken call
+	lexerIsDone call !
+	{
+		lexerReadTokens call
+	}
+	if
+} lexerReadTokens def
+
+"./examples/Calculate.toast"
 pop initLexer call
 
-lexerGetToken call
-lexerGetToken call
-lexerGetToken call
+lexerReadTokens call
 
+# [0]
+[ "/bin/ls"c "./"c 0 ]
+"/bin/ls"c
+ExecSyscode
+syscall3
