@@ -1,7 +1,9 @@
 import assert from "assert"
 import { openSync, readFileSync } from "fs"
+import path from "path"
+import { StandardLibraryDirectory } from "./arguments"
 import { makeToken, SourceLocation, TokenType } from "./tokens"
-import { digitCode, escapeChar, isDigitCode, isWhitespace } from "./utils"
+import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 const NegativeSign = '-'
 const IncludeSign = '%'
@@ -91,7 +93,7 @@ export class LexerSource {
 		return this.deepestSource.index >= this.deepestSource.text.length
 	}
 
-	readStringLiteral() {
+	readStringLiteral(endChar = "\"") {
 		const stringLiteral: string[] = []
 		let escapeNext = false
 		this.advanceOne()
@@ -105,7 +107,7 @@ export class LexerSource {
 			} else if (nextChar === '\\') {
 				escapeNext = true
 				return true;
-			} else if (nextChar !== '"') {
+			} else if (nextChar !== endChar) {
 				stringLiteral.push(nextChar)
 				return true;
 			}
@@ -184,7 +186,7 @@ export class LexerSource {
 			currentChar = this.current()
 		}
 
-		let currentCharAsDigit = digitCode(currentChar)
+		let currentCharAsDigit = currentChar ? digitCode(currentChar) : -1
 		if (firstChar == "%") {
 			if (currentChar == "\"") {
 				const includePath = this.readStringLiteral()
@@ -192,7 +194,17 @@ export class LexerSource {
 					throw ("Unterminated include path")
 				}
 				this.advanceOne()
-				this.includes = new LexerSourceFile(includePath);
+				this.includes = new LexerSourceFile(path.resolve(this.name, "../", includePath));
+				this.includes.includedIn = this;
+				return
+			}
+			else if (currentChar == "<") {
+				const includePath = this.readStringLiteral(">")
+				if (this.current() !== '>') {
+					throw ("Unterminated include path")
+				}
+				this.advanceOne()
+				this.includes = new LexerSourceFile(path.resolve(StandardLibraryDirectory, includePath));
 				this.includes.includedIn = this;
 				return
 			}
@@ -236,7 +248,6 @@ export class LexerSource {
 
 			if (firstChar == "-")
 				name.push(NegativeSign)
-
 			this.advanceWhile(() => {
 				const current = this.current()
 				if (!isWhitespace(current)) {
@@ -254,6 +265,7 @@ export class LexerSource {
 export class LexerSourceFile extends LexerSource {
 	constructor(path: string) {
 		super()
+		path = toToastPath(path)
 		this.text = readFileSync(path).toString()
 		this.name = path
 	}

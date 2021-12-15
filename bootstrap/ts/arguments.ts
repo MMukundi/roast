@@ -49,3 +49,6 @@ export const SourceFile = Inputs[0]
 
 /** The location of the compiler source directory */
 export const CompilerRootDirectory = path.resolve(__dirname, "../")
+
+/** The location of the toast standard library */
+export const StandardLibraryDirectory = path.resolve(CompilerRootDirectory, "./std")
