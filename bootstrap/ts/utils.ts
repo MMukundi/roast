@@ -1,3 +1,5 @@
+import path from "path";
+
 const ZeroCode = '0'.charCodeAt(0)
 export function escapeChar(c: string): string {
 	switch (c) {
@@ -41,4 +43,13 @@ export function isDigitCode(c: number): boolean {
 }
 export function isWhitespace(c: string): boolean {
 	return c.trim().length === 0
+}
+export const ToastExtensions = ["toast", "tst", "t"]
+
+export function toToastPath(sourcePath: string): string {
+	const extension = path.extname(sourcePath).substring(1)
+	const toastExtension = ToastExtensions.indexOf(extension)
+	const toastPath = toastExtension != -1 ?
+		sourcePath : `${sourcePath}.${ToastExtensions[0]}`
+	return toastPath
 }
