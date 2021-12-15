@@ -1,14 +1,13 @@
 import { execSync } from "child_process";
 import { cp, writeFileSync } from "fs";
 import path from "path";
-import { CompilerFlags, CompilerOptions, CompilerRootDirectory, Inputs, Options } from "./arguments";
+import { CompilerFlags, CompilerOptions, CompilerRootDirectory, Inputs, Options, StandardLibraryDirectory } from "./arguments";
 import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
 import { Token, SourceLocation, TokenMap, tokenString, TokenType, TokenValues } from "./tokens";
-import { escapeString, unescapeChar, unescapeString } from "./utils";
+import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
 
 const EntryPoint = "_main"
-const ToastExtensions = ["t", "tst", "toast"]
 type TokenProcessor<T> = {
 	[type in TokenType]: (context: T, value: TokenMap[type]) => void
 }
@@ -167,7 +166,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			case 'length':
 				// TODO: Change array length to index negative 1
-				compiler.assemblySource += `\tpop r8\n\tmov r8, [r8]\n\tpush r8\n`
+				compiler.assemblySource += `\ttoastStackArrayLength\n`
 				return;
 
 
@@ -241,11 +240,20 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			case 'get':
 				// ... ptr index get
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tmov r8, [r9+r8*8+8]\n\tpush r8\n`
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tmov r8, [r9+r8*8]\n\tpush r8\n`
 				return;
 			case 'set':
 				// ... val ptr index set
-				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov [r9+r8*8+8], r10\n`
+				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov [r9+r8*8], r10\n`
+				return;
+
+			case 'getByte':
+				// ... ptr index getByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\txor r10, r10\n\tmov r10b, byte[r9+r8*8]\n\tpush r10\n`
+				return;
+			case 'setByte':
+				// ... val ptr index setByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov byte[r9+r8*8], r10b\n`
 				return;
 
 			case 'read':
@@ -253,7 +261,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 			case 'write':
 				// ... val ptr write
-				compiler.assemblySource += `\tpop r8; val\n\tpop r9; ptr\n\tmov [r9], r8\n`
+				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov [r8], r9\n`
 				return;
 
 			case 'readByte':
@@ -261,7 +269,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 			case 'writeByte':
 				// ... val ptr set
-				compiler.assemblySource += `\tpop r8; val\n\tpop r9; ptr\n\tmov byte[r9], r8b\n`
+				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov byte[r8], r9b\n`
 				return;
 
 			case 'intToString':
@@ -308,7 +316,7 @@ export class Compiler {
 		// const toastExtension = ToastExtensions.find((ext) => sourcePath.endsWith(ext))
 		// const sourceBasename = toastExtension? sourcePath.substring(0,-toastExtension.length):sourcePath
 
-		const extension = path.extname(sourcePath).substr(1)
+		const extension = path.extname(sourcePath).substring(1)
 		const toastExtension = ToastExtensions.indexOf(extension)
 		const sourceBasename = toastExtension != -1 ?
 			path.join(path.dirname(sourcePath), path.basename(sourcePath, `.${ToastExtensions[toastExtension]}`)) :
@@ -326,7 +334,7 @@ export class Compiler {
 	functionCall: string;
 	stackFunctionCall: string;
 
-	assemblySource: string = `%include "${path.join(CompilerRootDirectory, "./std/std.asm")}"\n\tglobal ${EntryPoint}\n\tdefault rel\n\n\tsection .text\n_main:`
+	assemblySource: string = `%include "std.asm"\n\tglobal ${EntryPoint}\n\tdefault rel\n\n\tsection .text\n_main:`
 
 	constructor() {
 
@@ -381,7 +389,8 @@ export class Compiler {
 
 	compile() {
 		if (this.outputBasename) {
-			execSync(`nasm ${this.outputBasename}.asm -fmacho64 -g`, {
+			// TODO: Only include -g in debug mode
+			execSync(`nasm ${this.outputBasename}.asm -fmacho64 -g -i ${StandardLibraryDirectory}`, {
 				stdio: 'inherit'
 			})
 
