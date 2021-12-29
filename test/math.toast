@@ -1,0 +1,25 @@
+%<assert>
+
+{ 1 2 3 4 5 6 7 8 9 } nums def
+
+{ 10 copy "%d %d %d %d %d %d %d %d %d %d\n"c printf } debug def
+
+45
+nums call + + + + + + + +
+"Sum 1-9"c assertEqual call
+
+362880
+nums call * * * * * * * *
+"Product 1-9"c assertEqual call
+
+20
+3 9 * 3 4 * + 19 -
+"(3 * 9) - 19 + (4 * 3)"c assertEqual call
+
+2
+20 7 /
+"20/7"c assertEqual call
+
+6
+20 7 %
+"20%7"c assertEqual call

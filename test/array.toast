@@ -1,0 +1,112 @@
+%<array>
+%<assert>
+
+
+1 array forEachTotal def
+{ 0 5 1 range call } getVals def
+"---[Array tests]---\n" print
+"---Factorials with reduce---\n" print
+0 getVals call { 2 copy * { + }{ * }ifelse } reduce call
+
+24 swap
+"Reduce"c
+assertEqual call
+
+"---Foreach---\n" print
+getVals call
+{
+	forEachTotal 0 get +
+	forEachTotal 0 set
+} foreach call
+
+10
+forEachTotal 0 get
+"Foreach for sum"c
+assertEqual call
+
+"---Doubling using map---\n" print
+getVals call
+dup { 2 * } map call
+
+dup 0 get
+0 swap
+"Doubled[0]"c
+assertEqual call
+dup 1 get
+2 swap
+"Doubled[1]"c
+assertEqual call
+
+dup 2 get
+4 swap
+"Doubled[2]"c
+assertEqual call
+
+dup 3 get
+6 swap
+"Doubled[3]"c
+assertEqual call
+
+dup 4 get
+8 swap
+"Doubled[4]"c
+assertEqual call
+
+pop
+
+dup 0 get
+0 swap
+"Original[0]"c
+assertEqual call
+dup 1 get
+1 swap
+"Original[1]"c
+assertEqual call
+
+dup 2 get
+2 swap
+"Original[2]"c
+assertEqual call
+
+dup 3 get
+3 swap
+"Original[3]"c
+assertEqual call
+
+dup 4 get
+4 swap
+"Original[4]"c
+assertEqual call
+pop
+
+
+"---Doubling In Place---\n" print
+getVals call
+dup { 2 * } mapInPlace call
+dup 0 get
+0 swap
+"DoubledInPlace[0]"c
+assertEqual call
+dup 1 get
+2 swap
+"DoubledInPlace[1]"c
+assertEqual call
+dup 2 get
+4 swap
+"DoubledInPlace[2]"c
+assertEqual call
+dup 3 get
+6 swap
+"DoubledInPlace[3]"c
+assertEqual call
+dup 4 get
+8 swap
+"DoubledInPlace[4]"c
+assertEqual call
+pop
+
+
+"---First---\n" print
+getVals call first call 0 swap "First"c assertEqual call
+"---Last---\n" print
+getVals call last call 4 swap "Last"c assertEqual call

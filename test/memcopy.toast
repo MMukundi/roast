@@ -1,0 +1,72 @@
+%<assert>
+%<array>
+
+[ 1 2 3 4 5 ] src def
+[ 10 9 8 7 6 ] dest def
+
+src dest 5 memCopy
+
+src 0 get
+dest 0 get
+"Memcopied[0]"c
+assertEqual call
+src 1 get
+dest 1 get
+"Memcopied[1]"c
+assertEqual call
+src 2 get
+dest 2 get
+"Memcopied[2]"c
+assertEqual call
+src 3 get
+dest 3 get
+"Memcopied[3]"c
+assertEqual call
+src 4 get
+dest 4 get
+"Memcopied[4]"c
+assertEqual call
+
+"abcdefghijklm"c strToCopy def # 13 chars
+"abcdefghijklmnopqrstuvwxyz"c strSrc def
+[ 0 0 0 0 ] strDestMemcopy def
+[ 0 0 0 0 ] strDestStrcopy def
+
+strSrc strDestMemcopy strToCopy strLen memCopyByte
+strSrc strDestStrcopy strCopy
+
+strSrc
+strDestStrcopy
+"Copy entire string (strcopy)"c
+assertStringEqual call
+
+strToCopy
+strDestMemcopy
+"Copy part of string (memcopy)"c
+assertStringEqual call
+
+
+# "abcdefghijklmnopqrstuvwxyz"c strSprintfSrc def
+# "[Alphabet>]%s[<Alphabet]"c strSprintfDest def
+
+# 999999999 numSprintfSrc def
+# "[Nums>]%d[<nums]"c numSprintfDest def
+
+# {
+# 	"Src sprint string:\n" print
+# 	strSprintfSrc printf
+# 	"\nDest sprint string:\n" print
+# 	strSprintfDest dup strLen print
+# 	"\n" print
+# } debugSprintString def
+
+# debugSprintString call
+
+# strSprintfSrc strSprintfDest sprintf
+# numSprintfSrc numSprintfDest sprintf
+# swap
+# "AlphabetString: [%s]\nNumString: [%s]\n"c sprintf
+# printf
+
+# debugSprintString call
+
