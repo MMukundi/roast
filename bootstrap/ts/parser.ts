@@ -6,11 +6,13 @@ import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
 import { Token, SourceLocation, TokenMap, tokenString, TokenType, TokenValues } from "./tokens";
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
+import { toastImplicitConversions, closure, ToastType } from "./types"
 
 const EntryPoint = "_main"
 type TokenProcessor<T> = {
 	[type in TokenType]: (context: T, value: TokenMap[type]) => void
 }
+
 const compilerProcessor: TokenProcessor<Compiler> = {
 	[TokenType.OpenList](compiler) {
 		// compiler.textSection += compiler.pushAddressToStack(compiler.listStack, "rsp")
@@ -29,9 +31,11 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	[TokenType.OpenBlock](compiler) {
 		// Start a new label
 		compiler.assemblySource += `\ttoastBeginCodeBlock\n`
+		compiler.scopeDepth++
 	},
 	[TokenType.CloseBlock](compiler) {
 		compiler.assemblySource += `\ttoastEndCodeBlock\n`
+		compiler.scopeDepth--
 	},
 	[TokenType.CodeBlock](compiler, { location }) {
 		// compiler.errorHere("compiling CodeBlock tokens not yet implemented", location)
@@ -144,24 +148,29 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 			//FILE OPS, UNDER DEVELOOMENT
 			case 'readOpen':
 				compiler.assemblySource += `\ttoastStackReadOpenFile\n`
-				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
 				return;
 			case 'writeOpen':
 				compiler.assemblySource += `\ttoastStackWriteOpenFile\n`
-				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
 				return;
 
 			case 'readFile':
 				compiler.assemblySource += `\ttoastCallFunc read_file\n`
-				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
 				return;
 			case 'readFileTo':
 				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`
-				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
 				return;
 			case 'array':
-				compiler.assemblySource += `\ttoastStackCreateArray\n`
-				// compiler.assemblySource += `\ttoastDup\n\ttoastFileStats\n`
+				const sizeToken = compiler.source.lookBehind(1)
+				if (sizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
+					// TODO: Here, we can create const size arrays, but only if in the outer scope
+					// TODO: Do this in the parse value section
+					compiler.assemblySource += `\ttoastStackCreateArray\n`
+					return
+				} else {
+					compiler.assemblySource += `\ttoastStackCreateArray\n`
+					return
+				}
+				errorLogger.flushLog("Array size not provided")
 				return;
 
 			case 'length':
@@ -184,6 +193,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			case 'printf':
 				compiler.assemblySource += `\t${compiler.functionCall} print_f\n`
+				return;
+			case 'sprintf':
+				compiler.assemblySource += `\t${compiler.functionCall} sprint_f\n`
 				return;
 			case 'fprintf':
 				compiler.assemblySource += `\t${compiler.functionCall} file_print_f\n`
@@ -229,10 +241,26 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastIndex\n`
 				return;
 			case 'def':
-				compiler.assemblySource += `\ttoastDefineVariable\n`
+				const nameToken = compiler.source.lookBehind(2)
+				if (nameToken.type === TokenType.Name) {
+					// TODO: Implement variables as labels
+					compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
+				} else {
+					errorLogger.flushLog("Missing name token to define variable")
+				}
 				return;
 
 			// New commands
+			case 'strCopy':
+				compiler.assemblySource += `\ttoastCallFunc strcopy\n`
+				return;
+			case 'memCopy':
+				compiler.assemblySource += `\ttoastCallFunc memcopy\n`
+				return;
+
+			case 'memCopyByte':
+				compiler.assemblySource += `\ttoastCallFunc memcopy_byte\n`
+				return;
 
 			case 'exit':
 				compiler.assemblySource += `\tpop r8\n\ttoastExit r8\n`
@@ -326,15 +354,19 @@ export class Compiler {
 		c.outputBasename = path.resolve(CompilerOptions[Options.OutputDirectory], sourceBasename)
 		return c
 	}
+
+	scopeDepth: number = 0
+
 	outputBasename: string = "./out"
 	source: LexerSource;
 
-	lastToken: Token = null
-	nextToken: Token = null
+
 	functionCall: string;
 	stackFunctionCall: string;
 
 	assemblySource: string = `%include "std.asm"\n\tglobal ${EntryPoint}\n\tdefault rel\n\n\tsection .text\n_main:`
+
+	variableTypes: Record<string, ToastType> = {}
 
 	constructor() {
 
@@ -344,38 +376,31 @@ export class Compiler {
 	}
 
 	writeToken(token: Token) {
-		const curr = this.nextToken
-		this.nextToken = token
-
 		//? Fun note: This replacement enables tail recursion :O
-		this.functionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallFunc" : "toastCallFunc";
-		this.stackFunctionCall = this.nextToken.type == TokenType.CloseBlock ? "toastTailCallStackFunc" : "toastCallStackFunc";
-		// this.functionCall = "toastCallFunc";
-		// this.stackFunctionCall = "toastCallStackFunc";
+		const nextToken = this.source.lookAhead(1)
 
-		if (curr) {
-			this.assemblySource += `\n\t%line ${curr.location.line}+1 ${this.source.name}\n`
-			this.assemblySource += `\t;;--- ${unescapeString(tokenString(curr))} ---\n`
-			compilerProcessor[curr.type](this, curr as any)
+		if (nextToken && nextToken.type === TokenType.CodeBlock) {
+			this.functionCall = "toastTailCallFunc"
+			this.stackFunctionCall = "toastTailCallStackFunc"
+		} else {
+			this.functionCall = "toastCallFunc"
+			this.stackFunctionCall = "toastCallStackFunc"
 		}
-		this.lastToken = token
+
+		if (token) {
+			this.assemblySource += `\n\t%line ${token.location.line}+1 ${this.source.name}\n`
+			this.assemblySource += `\t;;--- ${unescapeString(tokenString(token))} ---\n`
+			compilerProcessor[token.type](this, token as any)
+		}
 	}
 	write(s: string) {
 		this.assemblySource += s
 	}
-	generateAssembly() {
-		while (!this.source.done()) {
-			// for (let i = 0; !p.done() && i < 70; i++) {
-			const t = this.source.readToken()
-			if (t) {
-				this.writeToken(t)
-			}
 
-			if (this.source.includeDone() && this.source.includes) {
-				this.source.deepestSource.includedIn.includes = null
-			}
+	generateAssembly() {
+		for (const token of this.source) {
+			this.writeToken(token)
 		}
-		this.writeToken(this.lastToken)
 	}
 	save(): void {
 		if (this.outputBasename) {
