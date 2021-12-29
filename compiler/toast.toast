@@ -1,7 +1,9 @@
+%"./command.toast"
+
 5 fileBufferSize def
 
 fileBufferSize 1 + array fileBuffer def
-fileBuffer 8 + fileBufferStart def # TODO: Remove offset once I fix arrayz length
+fileBuffer fileBufferStart def # TODO: Remove offset once I fix arrayz length
 
 fileBufferStart fileBufferSize + fileBufferEnd def
 { fileBufferStart "File contents:[%s]" pop  printf } printBuffer def

@@ -1,0 +1,80 @@
+{
+	lexer LexOutputFd get
+	lexer LexPtr get
+
+	lexer LexBytesRead get
+	lexer LexFileDescriptor get
+	lexer LexPath get
+
+	lexer LexLineOffset get
+	lexer LexLine get
+	lexer LexHasNextLine get
+	"Lexer{
+		HasNext:         %d
+		LineNumber:      %d
+		LineOffset:      %d
+		PathPointer:     %d
+		FileDesciptor:   %d
+		BytesRead:       %d
+		LexerPointer:    %d
+		OutputFileDesc:  %d
+	}\n"c printf
+} debugLexer def
+
+0 LexHasNextLine def
+1 LexLine def
+2 LexLineOffset def
+3 LexPath def
+4 LexFileDescriptor def
+5 LexBytesRead def
+6 LexPtr def
+7 LexOutputFd def
+
+# Token indecies
+# 0 TokType def
+# 1 TokValue def
+
+# 0 ValueTokenType def
+
+{ # inputFilePath
+	8 8 * array # inputFilePath lexer
+	0 1 index LexHasNextLine set # inputFilePath lexer
+	0 1 index LexLine set # inputFilePath lexer
+	0 1 index LexLineOffset set # inputFilePath lexer
+
+	0 1 index LexPath set # inputFilePath lexer
+	0 1 index LexFileDescriptor set # inputFilePath lexer
+	0 1 index LexBytesRead set # inputFilePath lexer
+
+	0 1 index LexPtr set # inputFilePath lexer
+	0 1 index LexOutputFd set # inputFilePath lexer
+
+	2 copy # inputFilePath lexer inputFilePath lexer
+	LexPath set # inputFilePath lexer
+	1 index # inputFilePath lexer inputFilePath
+	readOpen # inputFilePath lexer inputFileDescriptor
+	1 index # inputFilePath lexer inputFileDescriptor lexer
+	LexFileDescriptor set # inputFilePath lexer
+
+	1 1 index LexHasNextLine set
+
+	"./out.asm"c writeOpen
+	lexer LexOutputFd set
+	# TODO: REPLACE STDLIB PATH WITH ACCURATE PATH
+	"%include \"./std/std.asm\"
+		global _main
+		default rel
+
+		section .text
+	_main:
+	"
+	lexer LexOutputFd get
+	fprint
+
+	4096 array lexer LexTokens set
+
+	fillLexerBuffer call
+	# TODO: This gets rid of the number of bytes read. Later, use this to check if the file ended
+	# lexer LexBytesRead get
+	# "Inited lexer with %d bytes\n" pop printf
+} createLexer def
