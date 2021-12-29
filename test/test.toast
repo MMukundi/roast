@@ -1,9 +1,9 @@
 [ 0 ] status def
 status 1+ readStatusByte def
-[ NodeHome "bootstrap/js/toast.js"c 0 "-od"c "bin"c 0 ] testArgs def
 "/usr/local/bin/node"c NodeHome def
 "/usr/local/bin/nasm"c NasmHome def
 "/bin/ld"c LinkerHome def
+[ NodeHome "bootstrap/js/toast.js"c 0 "-od"c "bin"c 0 ] testArgs def
 
 { # [...args] command
 	ForkSyscode

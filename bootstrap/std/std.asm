@@ -156,33 +156,39 @@ toastCurrentString: db %1, 0
 ;; -------- [End(CodeBlock Macros)] --------
 ;; -------- [Begin(Variable Macros)] --------
 %macro  toastDefineVariable 0-1
-	;; ---- Attempt to just redefine ---- ;;
-	; toastDup
-	; toastCallFunc find_var
+	[section .bss]
+	toastCreateBuffer AddressBytes, %1
+	__SECT__
+	pop r8 ; Variable location
+	pop r9 ; Varibale value
+	mov [r8], r9
+; 	;; ---- Attempt to just redefine ---- ;;
+; 	; toastDup
+; 	; toastCallFunc find_var
 
-	; ;; Bool -> r8
-	; pop r8
-	; ;; Value/Address -> r9
-	; pop r9
+; 	; ;; Bool -> r8
+; 	; pop r8
+; 	; ;; Value/Address -> r9
+; 	; pop r9
 
-	; cmp r8, 0
-	; je %%undefined
-	jmp %%undefined
+; 	; cmp r8, 0
+; 	; je %%undefined
+; 	jmp %%undefined
 
-%%defined:
-	;; Move 'value', which the memory adress the variable was defined in
-	;; Into rbx, where move value takes place
-	mov rbx, r9
-	;; Throw away name
-	pop r9
-	jmp %%move_value
+; %%defined:
+; 	;; Move 'value', which the memory adress the variable was defined in
+; 	;; Into rbx, where move value takes place
+; 	mov rbx, r9
+; 	;; Throw away name
+; 	pop r9
+; 	jmp %%move_value
 
-%%undefined:
-	pop r8
-	toastStackAddressPush VariableStackPointer, r8, 2*AddressBytes
-%%move_value:
-	pop r8
-	mov [rbx+StoredVariable.value], r8
+; %%undefined:
+; 	pop r8
+; 	toastStackAddressPush VariableStackPointer, r8, 2*AddressBytes
+; %%move_value:
+; 	pop r8
+; 	mov [rbx+StoredVariable.value], r8
 ;; ---- Marker of block end ---- ;;
 %endmacro
 ;; -------- [End(Variable Macros)] --------

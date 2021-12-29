@@ -243,7 +243,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 			case 'def':
 				const nameToken = compiler.source.lookBehind(2)
 				if (nameToken.type === TokenType.Name) {
-					// TODO: Implement variables as labels
 					compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
 				} else {
 					errorLogger.flushLog("Missing name token to define variable")
@@ -312,12 +311,19 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 		}
 
+		const defToken = compiler.source.lookAhead(1)
+		compiler.assemblySource += `\tlea r8, [${name}]\n`
+		if (!(defToken.type === TokenType.Name && defToken.value === "def")) {
+			compiler.assemblySource += `\tmov r8, [r8]\n`
+		}
+		compiler.assemblySource += `\tpush r8\n`
 
-		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(name)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\t${compiler.functionCall} find_var\n`
 
-		// TODO: Remove when we figure out what to do with that boolean
-		// compiler.assemblySource += `\tpop r8; Bool\n\tpop r9 ; Value\n\tcmp r8, 0\n\t;; -- Only dereference defined variables, not variable names ;; \n\tcmove r9, [r9 + StoredVariable.value]\n\tpush r9\n`
-		compiler.assemblySource += `\tpop r8; Bool\n`
+		// compiler.assemblySource += `\ttoastDefineString \`${unescapeString(name)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\t${compiler.functionCall} find_var\n`
+
+		// // TODO: Remove when we figure out what to do with that boolean
+		// // compiler.assemblySource += `\tpop r8; Bool\n\tpop r9 ; Value\n\tcmp r8, 0\n\t;; -- Only dereference defined variables, not variable names ;; \n\tcmove r9, [r9 + StoredVariable.value]\n\tpush r9\n`
+		// compiler.assemblySource += `\tpop r8; Bool\n`
 
 		//#endregion DEBUG
 		// compiler.errorHere(`compiling Name tokens(${name}) not yet implemented`, location)
@@ -415,6 +421,10 @@ export class Compiler {
 	compile() {
 		if (this.outputBasename) {
 			// TODO: Only include -g in debug mode
+			execSync(`nasm ${this.outputBasename}.asm -i ${StandardLibraryDirectory} -e -o ${this.outputBasename}_preproc.asm`, {
+				stdio: 'inherit'
+			})
+
 			execSync(`nasm ${this.outputBasename}.asm -fmacho64 -g -i ${StandardLibraryDirectory}`, {
 				stdio: 'inherit'
 			})
