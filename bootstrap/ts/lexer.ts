@@ -2,7 +2,7 @@ import assert from "assert"
 import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
-import { makeToken, SourceLocation, TokenType } from "./tokens"
+import { makeToken, SourceLocation, Token, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 const NegativeSign = '-'
@@ -26,8 +26,35 @@ export class LexerSource {
 	includes: LexerSource = null;
 	includedIn: LexerSource = null;
 
+	/** The stack of consumed tokens */
+	prevTokens: Token[] = []
+
+	/** The queue of tokens parsed for lookahead, but not yet consumed */
+	nextTokens: Token[] = []
+
 	get deepestSource(): LexerSource {
 		return this.includes ? this.includes.deepestSource : this
+	}
+
+	*[Symbol.iterator]() {
+		while (!(this.done() && this.nextTokens.length == 0)) {
+			const token = this.readToken()
+			if (token)
+				yield token
+		}
+	}
+
+	lookBehind(index = 1): Token {
+		return this.prevTokens[this.prevTokens.length - index]
+	}
+
+	lookAhead(index = 1): Token {
+		while (this.nextTokens.length < index && !this.done()) {
+			const token = this.parseToken()
+			if (token)
+				this.nextTokens.push(token)
+		}
+		return this.nextTokens[index - 1]
 	}
 
 	/** The current character. */
@@ -87,7 +114,7 @@ export class LexerSource {
 
 	/** Returns whether or not the lexer source is completely consumed. */
 	done() {
-		return this.index >= this.text.length
+		return this.index >= this.text.length && (this.includeDone())
 	}
 	includeDone() {
 		return this.deepestSource.index >= this.deepestSource.text.length
@@ -117,8 +144,21 @@ export class LexerSource {
 	}
 
 	/** Returns the next token in the lexer source. */
-	readToken() {
-		assert(!this.includeDone(), "Tried to read token after end of file")
+	readToken(): Token {
+		const token = this.nextTokens.length ? this.nextTokens.shift() : this.parseToken()
+		if (token)
+			this.prevTokens.push(token)
+		return token
+	}
+	parseToken(): Token {
+		const token = this.getToken()
+		if (this.includeDone() && this.includes) {
+			this.deepestSource.includedIn.includes = null
+		}
+		return token
+	}
+	getToken(): Token {
+		assert(!this.done(), "Tried to read token after end of file")
 
 		let currentChar;
 		// Skip comments
@@ -208,7 +248,8 @@ export class LexerSource {
 				this.includes.includedIn = this;
 				return
 			}
-			throw ("Invalid preprocessor command")
+			// throw ("Invalid preprocessor command")
+			return makeToken(TokenType.Name, tokenLocation, '%')
 		}
 		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
