@@ -418,12 +418,14 @@ export class Compiler {
 		// writeFileSync(`${path}.asm`, `\tglobal ${EntryPoint} \n\tdefault rel\n${this.bufferSection} \n${this.functionDefs} \n${this.textSection} \n\tmov r8, 0\n\tpush r8\n\tjmp exit\n\n${this.dataSection} `)
 	}
 
-	compile() {
+	compile(EmitPreprocessed: boolean) {
 		if (this.outputBasename) {
 			// TODO: Only include -g in debug mode
-			execSync(`nasm ${this.outputBasename}.asm -i ${StandardLibraryDirectory} -e -o ${this.outputBasename}_preproc.asm`, {
-				stdio: 'inherit'
-			})
+			if (EmitPreprocessed) {
+				execSync(`nasm ${this.outputBasename}.asm -i ${StandardLibraryDirectory} -e -o ${this.outputBasename}_preproc.asm`, {
+					stdio: 'inherit'
+				})
+			}
 
 			execSync(`nasm ${this.outputBasename}.asm -fmacho64 -g -i ${StandardLibraryDirectory}`, {
 				stdio: 'inherit'

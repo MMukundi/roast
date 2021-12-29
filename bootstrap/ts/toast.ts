@@ -1,4 +1,4 @@
-import { CompilerOptions, Options, SourceFile } from "./arguments"
+import { CompilerFlags, CompilerOptions, Flags, Options, SourceFile } from "./arguments"
 import { LexerSourceFile } from "./lexer"
 import { debugLogger, errorLogger, noteLogger, warningLogger } from "./loggers"
 import { Compiler } from "./parser"
@@ -24,7 +24,7 @@ try {
 compiler.generateAssembly()
 compiler.write("\ttoastExit 0\n")
 compiler.save()
-compiler.compile()
+compiler.compile(CompilerFlags[Flags.EmitPreprocessed])
 try {
 	compiler.run()
 } catch (e) {

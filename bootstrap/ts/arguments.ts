@@ -22,10 +22,12 @@ export const CompilerOptions: Record<Options, string> = {
 }
 export enum Flags {
 	/** If true, debug information will be printed */
-	Debug = "d"
+	Debug = "d",
+	EmitPreprocessed = "p"
 }
 export const CompilerFlags: Record<Flags, boolean> = {
 	[Flags.Debug]: false,
+	[Flags.EmitPreprocessed]: false,
 }
 
 for (let argumentIndex = 0; argumentIndex < CompilerArguments.length; argumentIndex++) {
