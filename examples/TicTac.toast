@@ -1,8 +1,8 @@
 0 empty def
 [ 
-	" " pop 
-	"X" pop 
-	"O" pop 
+	" "c 
+	"X"c 
+	"O"c 
 ] playerStrings def
 
 "%s|%s|%s\n" pop rowString def
@@ -60,6 +60,7 @@ cellCount 1 + cellCountAndTurn def
 	dup
 	0 get
 	printBoard call
+	pop
 } printState def
 # {
 # 	# condFunc block
@@ -97,238 +98,194 @@ cellCount 1 + cellCountAndTurn def
 
 # "3819" pop stringToInt printNum
 {
-	# ... func:FuncPtr items:int
-	# func: A function run each loop return the number of those items it won't use, and a bool
-	# items: The number of items to copy from the top of the stack before loop
-	# ..... s[items -> 0] => .... s[numLeft -> 0] bool numLeft
+	# ... data:Any func:FuncPtr
+	# func: A function run each loop, returns a bool
+	# data: the input to the dowhile
 
-	# Get conditions
-	# whileInputs 1
-	dup 
-	{ 1 index }
-	{ 
-		dup 2 + copy
-		pop
-	} ifelse
-	call       # ['items' values] func items ['numLeft' values] bool numLeft
-
-	dup {
-		pop
-	}
-	{
-
-	dup        # ['items' values] func items ['numLeft' values] bool numLeft numLeft
-
-	4+ -2 roll # ['items' values] ['numLeft' values] bool numLeft func items
-	
-	swap # ['items' values] ['numLeft' values] bool numLeft items func
-
-	4 1 roll # ['items' values] ['numLeft' values] func bool numLeft items
-
-	## TODO: This is Handling extra data. Think over if we want to do this here or at call
-	swap dup # ['items' values] ['numLeft' values] func bool items numLeft numLeft
-	2 index  # ['items' values] ['numLeft' values] func bool items numLeft numLeft items
-	5+ 1 roll  # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items numLeft
-
-	2 copy  # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items numLeft items numLeft
-	4 + + # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items numLeft ((items+numLeft)+4)
-	swap # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items ((items+numLeft)+4) numLeft
-	1+ # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items ((items+numLeft)+4) (numLeft+1)
-	0 swap - # ['items'+1 values ...{numLeft}...] ['numLeft' values] func bool items ((items+numLeft)+4) -(numLeft+1) 
-	roll # ['numLeft-items'values from items] ['numLeft' values] func bool  items ['numLeft' values from items] numLeft
-	popN # ['numLeft-items'values from items] ['numLeft' values] func bool  items 
-	swap # ['numLeft-items'values from items] ['numLeft' values] func items bool  
-	}
-	ifelse
-
-
-	# ['numLeft' values] func items bool
-
-	{
-		{
-			pop
-			pop
-		}
-	}
-	{
-		doWhile
-	}
-	ifelse
+	2 copy
 	call
+	{
+		2 popN
+	}
+	{
+		doWhile call
+	}
+	ifelse
 } doWhile def
 
 { + readByte } getChar def
 { dup getChar call } copyChar def
 { + 1 print } printChar def
 
-# while printNum
-# 0
-# { 	
-# 	#... n:int
-# 	dup "Num: %d\n" pop printf
-# 	# Increment
-# 	1+
-# 	#Check Size (and negate)
-# 	dup 5 >
-# 	1 swap -
 
-# 	#Number of data items on stack
-# 	1
-# }
-# 1
-# doWhile call
 {
-0 
-{ 	
-	pop
-	printState call
+	[ dup 0 ] dup
+	{ 	# [PRESERVED] [ state index ]
+		dup 0 get # [ state index ] state
+		printState call  # [ state index ] state
+		dup 0 get 0 get # [ state index ] board
 	
-	# [ 1 2 3 4 5 6 7 8 9]
-	# printBoard call
-	"Pick an open spot [Enter a number 1-9]: " print
-	#... n:int
+		# [ 1 2 3 4 5 6 7 8 9]
+		# printBoard call
+		"Pick an open spot [Enter a number 1-9]: " print # [ state index ] board
+		#... n:int
 
-	## Use the numbers 1-9 in order
-	# debugInput dup dup readByte 
-	# dup 57 < { 3 exit }{ 1+ } ifelse
-	# writeByte
+		## Use the numbers 1-9 in order
+		# debugInput dup dup readByte 
+		# dup 57 < { 3 exit }{ 1+ } ifelse
+		# writeByte
 
-	## Use user input
-	input pop	 
+		## Use user input
+		input pop # [ state index ] board cellIndexStr
 
-	## Use the number 6 every time
-	# "6" pop	
+		## Use the number 6 every time
+		# "6" pop	
 
-	stringToInt 1 -
+		stringToInt 1 - # [ state index ] board cellZeroBasedIndex
+		# dup "Index: %d\n"c printf
 
-	dup dup
-	-1 >
-	swap 9 <
-	# And
-	
-	*
+		# store index
+		dup # [ state index ] board cellZeroBasedIndex cellZeroBasedIndex
+		3 index # [ state index ] board cellZeroBasedIndex cellZeroBasedIndex [ state index ]
+		1 set # [ state index ] board cellZeroBasedIndex { index set }
 
-	2 index 0 get 
-	2 index get
-	0 =
-	*
+		dup dup # [ state index ] board cellZeroBasedIndex cellZeroBasedIndex cellZeroBasedIndex
+		-1 > # [ state index ] board cellZeroBasedIndex cellZeroBasedIndex cellIsNotNeg
+		swap 9 < # [ state index ] board cellZeroBasedIndex cellIsNotNeg cellLessThan10 
+		# And
+		# dup "InRange: %d\n"c printf
+		
+		* # [ state index ] board cellZeroBasedIndex cellInRange
 
-	#negate
-	1 swap -
-	dup {
-		"Invalid spot. Please try again.\n" print
-	} if
+		3 1 roll # [ state index ] cellInRange state cellZeroBasedIndex
+		get  # [ state index ] cellInRange cellValue
+		0 = # [ state index ] cellInRange cellIsEmpty
+		# dup "IsEmpty: %d\n"c printf
+		* # [ state index ] cellIsValid
 
-	2
-}
-2
-doWhile call
+		#negate
+		! # [ state index ] cellIsInvalid
+		dup {
+			"Invalid spot. Please try again.\n" print
+		}
+		if # [ state index ] cellIsInvalid
+		swap pop # cellIsInvalid
+		# 14 copy "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d\n"c printf
+	}
+	doWhile call
+	1 get # index
+	swap pop
 } getCellIndex def
-{
-getCellIndex call
-# dup
+{ # [ board turnCounter ]
+	dup
+	getCellIndex call  # [ board turnCounter ] index
 
-# swap
-# printState call
-# swap
-1 index
-0 get
-2 index 
-1 get 1 +
-3 1 roll
-swap
-set
-dup
-1 get
-1 swap -
-1 index 1 set
+	1 index # [ board turnCounter ] index [ board turnCounter ] 
+	0 get # [ board turnCounter ] index board
+	2 index  # [ board turnCounter ] index board [ board turnCounter ]
+	1 get 1 + # [ board turnCounter ] index board (turnCounter+1)
+	3 1 roll # [ board turnCounter ] (turnCounter+1) index board
+	swap # [ board turnCounter ] (turnCounter+1) board index
+	set # [ board turnCounter ] { board[index] = (turnCounter+1) }
+	dup # [ board turnCounter ] [ board turnCounter ]
+	1 get # [ board turnCounter ] turnCounter
+	! # [ board turnCounter ] (!turnCounter)
+	1 index 1 set # [ board !turnCounter ]
+
 } run def
 
-{
-	0 get
-	winSet
-	0 # 0 # winFoundBool
-	{
-		# - board winSet index
-
-		3 copy
-		# - board winSet index board winSet index
+{ # [board turnCount]
+	[
+		dup 0 get  # [board turnCount] [ board
+		winSet  # [board turnCount] [ board winSet
+		0 #  [board turnCount] [ board winSet index
+	]#  [board turnCount] [board winSet index] [board winSet index]
+	dup {
+		# - [board winSet index]
 
 		dup
-		# - board winSet index board winSet index index
+		# - [board winSet index] [board winSet index]
 
-		3 1 roll
-		# - board winSet index board index winSet index
+		dup 2 get
+		# - [board winSet index] [board winSet index] index
+
+		swap 1 get swap
+		# - [board winSet index] winSet index
 
 		get
-		# - board winSet index board index winIndecies
+		# - [board winSet index] winIndecies
+		
+		1 index 0 get swap
+		# - [board winSet index] board winIndecies
 
-		# dup 0 get printNum
-		# # - board winSet index board index winIndecies [printed WinIndex2]
+		1 index 1 index # - [board winSet index] board winIndecies board winIndecies
+		0 get  # - [board winSet index] board winIndecies board winIndecies[0]
+		get  # - [board winSet index] board winIndecies board[winIndecies[0]]
 
-		# dup 1 get printNum
-		# # - board winSet index board index winIndecies [printed WinIndex1]
+		2 index 2 index # - [board winSet index] board winIndecies board[winIndecies[0]] board winIndecies 
+		1 get  # - [board winSet index] board winIndecies board[winIndecies[0]] board winIndecies[1]
+		get  # - [board winSet index] board winIndecies board[winIndecies[0]] board[winIndecies[1]]
 
-		# dup 2 get printNum
-		# # - board winSet index board index winIndecies [printed WinIndex0]
+		3 index 3 index # - [board winSet index] board winIndecies board[winIndecies[0]] board[winIndecies[1]] board winIndecies
+		2 get  # - [board winSet index] board winIndecies board[winIndecies[0]] board[winIndecies[1]] board winIndecies[2]
+		get  # - [board winSet index] board winIndecies board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]]
 
-		0 index 0 get 3 index swap get
-		# - board winSet index board index winIndecies BoardValue0
-		1 index 1 get 4 index swap get
-		# - board winSet index board index winIndecies BoardValue0 BoardValue1
-		2 index 2 get 5 index swap get
-		# - board winSet index board index winIndecies BoardValue0 BoardValue1 BoardValue2
+		5 -2 roll
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]] board winIndecies
 
-		6 3 roll
-		# - board winSet index BoardValue0 BoardValue1 BoardValue2 board index winIndecies
-
-		3 popN
-		# - board winSet index BoardValue0 BoardValue1 BoardValue2
+		2 popN
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]]
 
 		# TODO: Instead of printNums
 
 		2 index
-		# - board winSet index BoardValue0 BoardValue1 BoardValue2 BoardValue0
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]] board[winIndecies[0]]
 
 		4 1 roll
-		# - board winSet index BoardValue0 BoardValue0 BoardValue1 BoardValue2
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]]
 
 		1 index
-		# - board winSet index BoardValue0 BoardValue0 BoardValue1 BoardValue2 BoardValue1
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[0]] board[winIndecies[1]] board[winIndecies[2]] board[winIndecies[1]]
 
 		=
-		# - board winSet index BoardValue0 BoardValue0 BoardValue1 (BoardValue2=BoardValue1)
+		# - [board winSet index] board[winIndecies[0]] board[winIndecies[0]] board[winIndecies[1]] (board[winIndecies[2]] = board[winIndecies[1]])
 
 		3 1 roll
-		# - board winSet index BoardValue0 (BoardValue2=BoardValue1) BoardValue0 BoardValue1 
+		# - [board winSet index] board[winIndecies[0]] (board[winIndecies[2]] = board[winIndecies[1]]) board[winIndecies[0]] board[winIndecies[1]] 
 
 		=
-		# - board winSet index BoardValue0 (BoardValue2=BoardValue1) (BoardValue0=BoardValue1)
+		# - [board winSet index] board[winIndecies[0]] (board[winIndecies[2]] = board[winIndecies[1]]) (board[winIndecies[0]]=board[winIndecies[1]])
 
 		*
-		# - board winSet index BoardValue0 ((BoardValue2=BoardValue1) && (BoardValue0=BoardValue1))
+		# - [board winSet index] board[winIndecies[0]] (board[winIndecies[0]] = board[winIndecies[1]] = board[winIndecies[2]])
 
 		1 index 0 !=
-		# - board winSet index BoardValue0 ((BoardValue2=BoardValue1) && (BoardValue0=BoardValue1)) (BoardValue0 != 0)
-		
-		*
-		# - board winSet index BoardValue0 ((BoardValue2=BoardValue1) && (BoardValue0=BoardValue1) && BoardValue0 != 0)
- 		
-		*
-		# - board winSet index (((BoardValue2=BoardValue1) && (BoardValue0=BoardValue1) && BoardValue0 != 0)? BoardValue0: 0)
+		# - [board winSet index] board[winIndecies[0]] (board[winIndecies[0]] = board[winIndecies[1]] = board[winIndecies[2]]) (board[winIndecies[0]] != 0)
 
-		dup { pop 1+ dup 8 < } { swap pop 0 } ifelse
-		# - ((BoardValue2=BoardValue1) && (BoardValue0=BoardValue1) && BoardValue0 != 0)
-		#     - board winSet BoardValue0 0
-		#     - board winSet (index+1) (index+1<8) 
+		*
+ 		# - [board winSet index] board[winIndecies[0]] ((board[winIndecies[0]] = board[winIndecies[1]] = board[winIndecies[2]]) && (board[winIndecies[0]] != 0))
 
-		3
-		# - board winSet (index+1) (index+1 < 7) 3
-	} 3
-	doWhile call
+		*
+ 		# - [board winSet index] matchFound
+
+		dup { # - [board winSet index] 0
+			pop dup # [board winSet index] [board winSet index]
+			2 get # [board winSet index] index
+			1+ dup # [board winSet index] (index+1) (index+1)
+			8 < # [board winSet index] (index+1) (index+1 < 8)
+		}
+		{ # - [board winSet index] playerIndex
+			0 # - [board winSet index] playerIndex 0
+		}
+		ifelse # - [board winSet index] newIndex shouldContinue
+		swap 2 index  # - [board winSet index] shouldContinue newIndex [board winSet index]
+		2 set # - [board winSet newIndex] shouldContinue {[board winSet index][2] = newIndex)
+		swap pop
+	} 
+	doWhile call # [board turnCount] [board winSet index]
 
 	# remove the board and winIndecies
-	3 1 roll 2 popN
+	2 get # [board turnCount] index
 
 	# If there's an 8 at the top of the stack, nobody won yet
 	dup 8 =
@@ -340,23 +297,40 @@ dup
 	# otherwise just return their number
 } checkWin def
 
-{
-	dup
-	run call
+# Board
+dup { # [board turnCount] 
+	run call # [board turnCount]
+	# 6 copy "Board2:%d\nLoopFunc:%d\nBoard1: %d\nBoardOrig: %d\nArgc: %d\nArgV: %d\n"c printf
+
 	# "printNum" print
-	checkWin call 
+	checkWin call # [board turnCount] winnerNumber
+	# 7 copy "index: %d\nBoard2:%d\nLoopFunc:%d\nBoard1: %d\nBoardOrig: %d\nArgc: %d\nArgV: %d\n"c printf
 	dup
-	{
+	{ # [board turnCount] 0
 		pop pop 1
 	}
-	{
-		"Player %d wins!\n" pop printf
+	{ # [board turnCount] winnerNumber
+		"Player %d wins!\n"c printf
 		0 get
 		printBoard call
 		pop
 		0
 	}
 	ifelse
-	0
-} 1 doWhile call
+} doWhile call
+
+
+# [0] { 	
+# 	#... [n:int]
+# 	dup 0 get dup # [n] n n
+# 	"Num: %d\n" pop printf # [n] n
+# 	# Increment
+# 	1+ # [n] (n+1)
+# 	2 copy swap 0 set # [n+1] (n+1)
+
+# 	#Check Size (and negate)
+# 	5 <= # [n+1] (n+1<=5)
+# 	swap pop
+# }
+# doWhile call
 
