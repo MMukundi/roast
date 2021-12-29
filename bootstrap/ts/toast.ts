@@ -31,7 +31,9 @@ try {
 	const error = e as any
 	const pref = '\t> '
 	errorLogger.flushLog(`------------Run Failed----------------`)
+	errorLogger.flushLog(`${pref}File: ${compiler.source.name} `)
 	errorLogger.flushLog(`${pref}Exit Code: ${error.status} `)
 	errorLogger.flushLog(`${pref}Exit Signal: ${error.signal} `)
 	errorLogger.flushLog(`${pref}Exit output: ${error.stderr?.toString() || "N/A"} `)
+	process.exit(error.status)
 }
