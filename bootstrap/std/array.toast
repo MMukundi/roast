@@ -1,0 +1,45 @@
+{ 
+	3 index 0 > { 3 -1 roll 4 1 roll 3 popN } { 3 -1 roll 2 index 2 index 
+	swap read swap call 
+	3 1 roll
+	swap 8+ swap
+	4 -1 roll 1- 4 1 roll
+	reduceCore call
+	} ifelse 
+} reduceCore def # numLeft previousValue arrPtr func 
+{
+	swap dup length 4 1 roll swap
+	reduceCore call
+} reduce def # initialValue arr func 
+
+{ 
+	2 index 0 > { 3 popN } { 2 copy swap read swap call 3 1 roll 8+ swap 1 - swap 3 -1 roll foreachCore call } ifelse 
+} foreachCore def # numLeft arrPtr func 
+{
+	swap dup length swap 3 -1 roll foreachCore call
+} foreach def # arr func 
+
+{ 
+	2 index 0 > { 3 popN } { 2 copy swap read swap call 4 2 roll 8+ swap 1 - swap 4 -1 roll mapCore call } ifelse 
+} mapCore def # numLeft arrPtr func 
+{
+	swap dup length swap 3 -1 roll [ 3 copy mapCore call ] 4 1 roll 3 popN
+} map def # arr func 
+
+{ 
+	# 2 index 0 > { 3 popN } { 2 copy swap read swap call 3 index write 3 1 roll 8+ swap 1 - swap 3 -1 roll mapInPlaceCore call } ifelse 
+	2 index 0 > { 3 popN } { 2 copy swap read swap call 2 index write 3 1 roll 8+ swap 1 - swap 3 -1 roll mapInPlaceCore call } ifelse 
+} mapInPlaceCore def # numLeft arrPtr func 
+{
+	swap dup length swap 3 -1 roll mapInPlaceCore call
+} mapInPlace def # arr func 
+
+{ 
+	2 index 2 index < { 3 popN } { 3 -1 roll dup 2 index + 4 2 roll rangeCore call } ifelse 
+} rangeCore def # curr stop step
+{
+	[ 3 copy rangeCore call ] 4 1 roll 3 popN
+} range def # start stop step 
+
+{ 0 get } first def #arr
+{ dup length 1 - get } last def #arr

@@ -1,4 +1,4 @@
-%include "/Users/marcelmukundi/Desktop/toast/toast/bootstrap/std/system.asm"
+%include "system.asm"
 
 %define AddressBytes 8
 %define AddressSize qword
@@ -155,7 +155,7 @@ toastCurrentString: db %1, 0
 %endmacro
 ;; -------- [End(CodeBlock Macros)] --------
 ;; -------- [Begin(Variable Macros)] --------
-%macro  toastDefineVariable 0
+%macro  toastDefineVariable 0-1
 	;; ---- Attempt to just redefine ---- ;;
 	; toastDup
 	; toastCallFunc find_var
@@ -393,8 +393,11 @@ toastCreateBuffer %1, %%buffer
 %else
 	mov r8, %1
 %endif
-	lea r9, [rsp]
-	times 8 add r9, r8
+	
+	; lea r9, [rsp]
+	; times 8 add r9, r8
+	lea r9, [rsp+r8*8]
+
 	mov r8, [r9]
 	push r8
 %endmacro
@@ -504,13 +507,22 @@ cmove r9, r10
 ; toastDebugRegisters
 %macro toastCreateArray 1
 	toastStackAddressPush ArrayStackPointer, 0, %1
-	toastStackAddressPush ArrayStackPointer, %1
 	mov r9, AddressSize[ArrayStackPointer]
 	push r9
+	toastStackAddressPush ArrayStackPointer, %1
 %endmacro
 %macro toastStackCreateArray 0
 	pop r9
 	toastCreateArray r9
+%endmacro
+
+%macro toastStackArrayLength 0
+	pop r8
+	toastArrayLength r8
+%endmacro
+%macro toastArrayLength 1
+	mov r8, [%1+StoredArray.length]
+	push r8
 %endmacro
 
 %macro toastPushMark 0
@@ -537,11 +549,9 @@ cmove r9, r10
 	jmp %%array_until_loop
 
 %%array_until_done:
-
+	mov r8, AddressSize[ArrayStackPointer]
+	push r8
 	toastStackAddressPush ArrayStackPointer, r9
-	mov r9, AddressSize[ArrayStackPointer]
-	; mov r9, AddressSize[r9]
-	push r9
 %endmacro
 %macro toastPopUntilMark 0
 	;; -- exit --
@@ -690,8 +700,10 @@ toastCreateStack 1024, ReturnStack, ReturnStackPointer
 toastCreateStack 1024, VariableStack, VariableStackPointer
 toastCreateStack 1024, MarkStack, MarkStackPointer
 
-toastCreateStack 8192, ArrayStack, ArrayStackPointer
-toastCreateStack 16384, StringHeap, StringHeapPointer
+; toastCreateStack 8192, ArrayStack, ArrayStackPointer
+toastCreateStack 1024, ArrayStack, ArrayStackPointer ; Small heap
+; toastCreateStack 16384, StringHeap, StringHeapPointer
+toastCreateStack 1024, StringHeap, StringHeapPointer ; Small heap
 
 toastDefineString `0123456789ABCDEF`, DigitString
 toastDefineString `\n`, NewlineString
@@ -724,13 +736,13 @@ print_num_base_core:
 	mov AddressSize[rbp-9],0
 
 	;; boolean isNeg
-	mov AddressSize[rbp-1],0
+	mov byte[rbp-1],0
 
 	cmp rax, 0
 	jnl print_num_loop
 
 	;; NegativeSetup
-	mov AddressSize[rbp-1],1
+	mov byte[rbp-1],1
 
 	;; Negate input
 	mov AddressSize[rbp-9],0
@@ -757,8 +769,8 @@ print_num_loop:
 	cmp rax, 0
 	jne print_num_loop
 
-	mov rax, AddressSize[rbp-1]
-	cmp rax, 0
+	mov al, byte[rbp-1]
+	cmp al, 0
 	je print_num_print
 
 	;; Add negative sign
@@ -1016,6 +1028,196 @@ find_var_end:
 	push rax
 %endmacro
 
+
+memcopy:
+	; ... src dest size
+	pop rcx ; size
+	pop r9 ; dest
+	pop r8 ; src
+	
+	cmp rcx, 0
+	je .done
+.loop:
+	mov r10, [r8]
+	mov [r9], r10
+
+	lea r8, [r8+AddressBytes]
+	lea r9, [r9+AddressBytes]
+
+	loop .loop
+.done:
+	toastReturn
+
+memcopy_byte:
+	; ... src dest bytes
+	pop rcx ; bytes
+	pop r9 ; dest
+	pop r8 ; src
+	cmp rcx, 0
+	je .done
+.loop:
+	mov r10b, byte[r8]
+	mov byte[r9], r10b
+	inc r8
+	inc r9
+	loop .loop
+.done:
+	toastReturn
+
+strcopy:
+	; ... src dest
+	pop r9 ; dest_str
+	pop r8 ; src_str
+
+	mov r10b, byte[r8]
+	cmp r10b, 0
+	je .done
+.loop:
+	mov byte[r9], r10b
+	inc r8
+	inc r9
+
+	mov r10b, byte[r8]
+	cmp r10b, 0
+	jne .loop
+.done:
+	push r9
+	toastReturn
+
+sprint_f:
+	;; Iterate until next formatting character
+	;; -- If s: print string
+	;; -- If d: print_num
+	pop r8
+	mov rdi, [StringHeapPointer]
+	xor r9, r9
+.find_format:
+	mov al, byte[r8+r9]
+
+	cmp al, 0
+	je .done
+
+	
+	inc r9
+
+	cmp al, '%'
+	jne .find_format
+	
+	;; Once a percent is found:
+
+	;; -- Look at the next char
+	mov al, byte[r8+r9]
+	
+	;; -- Escape if %% => %
+	; Skip % if %, dont skip if %%
+	mov r10, 1
+	cmp al, '%'
+	cmove r10, [Constant_Zero]
+	;; TODO: This prints the percent if its at the end. think that over
+	; cmp al, '0'
+	; cmovne r10, [Constant_One]
+	; inc r10 
+	
+	;; -- Print what came before:
+	sub r9,r10
+	push rdi
+	push rax
+	push r10
+	push r8
+	push r9
+
+	; toastFilePrintString rdi, r8, r9
+	push r8 ; src
+	mov r8, [StringHeapPointer] ;dest
+	push r8
+	push r9 ;size
+
+	;; Increment
+	mov r8, [StringHeapPointer] ;dest
+	lea r8, [r8+r9]
+	mov [StringHeapPointer], r8
+
+	toastCallFunc memcopy_byte
+
+
+	pop r9
+	pop r8
+	pop r10
+	pop rax
+	pop rdi
+	add r9,r10
+
+	
+
+	;; No format char!
+	cmp al, 0
+	je .error
+
+	add r9, 1
+	add r8, r9
+
+	;; Handle formatting char
+	cmp al, 'd'
+	je .num
+
+	cmp al, 's'
+	je .str
+
+	; cmp al, '%'
+	; je print_f_next
+
+	jmp .next
+.num:
+	pop rax
+	push r8
+
+	push rax
+	toastCallFunc itoa_base_10
+	pop rax
+	pop rax
+
+	pop r8
+	jmp .next
+.str:
+	pop rax
+	push rdi
+	push r8
+	; toastFilePrintString rdi,rax 
+	; pop r8
+	; pop rdi
+
+	push rax ; src
+	mov r8, [StringHeapPointer]
+	push r8 ; dest
+	toastCallFunc strcopy
+	;; Increment
+	pop rax ; copyEnd
+	mov [StringHeapPointer], rax
+	
+	pop r8
+	pop rdi
+	jmp .next
+.next:
+	xor r9, r9
+	jmp .find_format
+.done:
+	; toastFilePrintString rdi, r8
+
+	push r8 ; src
+	mov r8, [StringHeapPointer] ; dest
+	push r8
+	toastCallFunc strcopy
+	;; Increment
+	pop rax ; copyEnd
+	inc rax
+	mov [StringHeapPointer], rax
+	mov AddressSize[rax], 0
+
+	push rdi
+
+.error:
+	toastReturn
+
 read_file_to:
 	pop rdx ; size
 	pop rsi ; ptr
@@ -1172,20 +1374,42 @@ atoi_done:
 	toastReturn
 
 itoa:
+
+itoa_base_10:
 	mov rbx, 10
 	push rbx
-itoa_base:
+	jmp itoa_base_core
+
+itoa_base_core:
 	pop rbx
 	pop rax
-	; enter 8, 0
-	lea rsi, [StringHeapPointer]
-	mov rsi, [rsi]
-	dec rsi
-	mov byte[rsi], 0
+	enter 32+8+1, 0
+	mov rsi, rbp
+	sub rsi,9
 
-	mov rdi,0
-itoa_loop:
-	; xor rdx, rdx
+	mov AddressSize[rbp-9],0
+	
+	dec rsi
+	mov byte[rsi],0
+
+	;; boolean isNeg
+	mov byte[rbp-1],0
+
+	cmp rax, 0
+	jnl .loop
+
+	;; NegativeSetup
+	mov byte[rbp-1],1
+
+	;; Negate input
+	mov AddressSize[rbp-9],0
+	sub AddressSize[rbp-9],rax
+	mov rax, AddressSize[rbp-9]
+
+	mov AddressSize[rbp-9],0
+
+.loop:
+	;xor rdx, rdx
 	CQO
 	mov rcx, rbx
 	idiv rcx
@@ -1197,16 +1421,41 @@ itoa_loop:
 	dec rsi
 	mov byte[rsi], r9b
 
-	add rdi,1
+	add AddressSize[rbp-9],1
 
 	cmp rax, 0
-	jne itoa_loop
+	jne .loop
+
+	mov al, byte[rbp-1]
+	cmp al, 0
+	je .print
+
+	;; Add negative sign
+	dec rsi
+	mov byte[rsi], '-'
+
+	add AddressSize[rbp-9],1
+
+.print:
+	mov rax, [StringHeapPointer]
+	push rax
 
 	push rsi
-	mov rsi, rdi
+	push rax
+	toastCallFunc strcopy
+
+	pop rax
+	mov [StringHeapPointer], rax
+
+	pop rsi
+	mov rax, AddressSize[rbp-9]
+
+	leave
 	push rsi
+	push rax
 
 	toastReturn
+
 
 
 struc StoredVariable
@@ -1215,7 +1464,8 @@ struc StoredVariable
 endstruc
 
 ; struc StoredArray, -AddressSize
-struc StoredArray
-	.size: ReservePointer 1
-	.dataStart: ReservePointer 1
+struc StoredArray, -8
+	.length: ReservePointer 1
+	.data: ReservePointer 1
 endstruc
+

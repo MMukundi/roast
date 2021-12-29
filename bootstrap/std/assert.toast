@@ -1,0 +1,91 @@
+{
+	# display expected actual comparison message
+	4 copy pop # display expected actual comparison message expected actual comparison
+	call  # display expected actual comparison message areEqual
+	{
+		swap pop # display expected actual message
+		3 -1 roll swap # display actual expected message
+		"Fail[%s]\n - Expected: "c printf # display actual expected
+		2 index call
+		# pop
+		"\n - Actual: "c printf
+		1 index call
+		# pop
+		"\n"c printf
+		pop
+	}
+	{
+		"Pass[%s]\n"c printf
+		4 popN
+	}
+	ifelse
+} assertComparison def
+
+# {
+# 	# expected actual comparison message
+# 	4 copy pop # expected actual comparison message expected actual comparison
+# 	call  # expected actual comparison message areEqual
+# 	{
+# 		swap pop # expected actual message
+# 		3 -1 roll swap # actual expected message
+# 		"Fail[%s]\n - Expected: %d\n - Actual: %d\n"c printf
+# 	}
+# 	{
+# 		"Pass[%s]\n"c printf
+# 		3 popN
+# 	}
+# 	ifelse
+# } assertArrayEqual def
+
+{
+	# expected actual message
+	{ strEq } swap # expected actual comparison message
+	{ "\"%s\""c printf } 5 1 roll # displayString expected actual comparison message
+	assertComparison call
+} assertStringEqual def
+
+{
+	# expected actual message
+	{ = } swap # expected actual comparison message
+	{ "%d"c printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertEqual def
+{
+	# expected actual message
+	{ < } swap # expected actual comparison message
+	{ "%d"c printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertLess def
+{
+	# expected actual message
+	{ > } swap # expected actual comparison message
+	{ "%d"c printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertGreater def
+{
+	# expected actual message
+	{ <= } swap # expected actual comparison message
+	{ "%d"c printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertLessOrEquals def
+{
+	# expected actual message
+	{ >= } swap # expected actual comparison message
+	{ "%d"c printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertGreaterOrEquals def
+
+{
+	# actual message 
+	1 3 1 roll # True actual message
+	{ = } swap # True actual comparison message
+	{ {"False"c}{"True"c} ifelse printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertTrue def
+{
+	# actual message 
+	0 3 1 roll # True actual message
+	{ = } swap # True actual comparison message
+	{ {"False"c}{"True"c} ifelse printf } 5 1 roll # displayNumber expected actual comparison message
+	assertComparison call
+} assertFalse def
