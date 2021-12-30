@@ -1,34 +1,50 @@
-{
-	lexer LexOutputFd get
-	lexer LexPtr get
+%"./token.toast"
 
-	lexer LexBytesRead get
-	lexer LexFileDescriptor get
-	lexer LexPath get
+5 lexerBufferSize def
 
-	lexer LexLineOffset get
-	lexer LexLine get
-	lexer LexHasNextLine get
-	"Lexer{
-		HasNext:         %d
-		LineNumber:      %d
-		LineOffset:      %d
-		PathPointer:     %d
-		FileDesciptor:   %d
-		BytesRead:       %d
-		LexerPointer:    %d
-		OutputFileDesc:  %d
-	}\n"c printf
+0 HasNextLine def
+1 Line def
+2 LineOffset def
+3 Path def
+4 FileDescriptor def
+5 BytesRead def
+6 Pointer def
+7 OutputFd def
+8 PreviousTokens def
+9 NextTokens def
+10 Buffer def
+11 InputPath def
+12 NumberOfLexerProperties def
+
+10 MaxBufferedTokens def
+
+{ # lexer
+	0 index OutputFd get
+	1 index Pointer get
+
+	2 index BytesRead get
+	3 index FileDescriptor get
+	4 index Path get
+
+	5 index LineOffset get
+	6 index Line get
+	7 index HasNextLine get
+
+	8 index InputPath get
+"Lexer	{
+	File: \"%s\"
+	HasNext:         %d
+	LineNumber:      %d
+	LineOffset:      %d
+	PathPointer:     %d
+	FileDesciptor:   %d
+	BytesRead:       %d
+	LexerPointer:    %d
+	OutputFileDesc:  %d
+}
+"c printf
+pop
 } debugLexer def
-
-0 LexHasNextLine def
-1 LexLine def
-2 LexLineOffset def
-3 LexPath def
-4 LexFileDescriptor def
-5 LexBytesRead def
-6 LexPtr def
-7 LexOutputFd def
 
 # Token indecies
 # 0 TokType def
@@ -37,44 +53,155 @@
 # 0 ValueTokenType def
 
 { # inputFilePath
-	8 8 * array # inputFilePath lexer
-	0 1 index LexHasNextLine set # inputFilePath lexer
-	0 1 index LexLine set # inputFilePath lexer
-	0 1 index LexLineOffset set # inputFilePath lexer
+	NumberOfLexerProperties array # inputFilePath lexer
+	# 8 8 * array # inputFilePath lexer
 
-	0 1 index LexPath set # inputFilePath lexer
-	0 1 index LexFileDescriptor set # inputFilePath lexer
-	0 1 index LexBytesRead set # inputFilePath lexer
+	0 1 index HasNextLine set # inputFilePath lexer
+	0 1 index Line set # inputFilePath lexer
+	0 1 index LineOffset set # inputFilePath lexer
 
-	0 1 index LexPtr set # inputFilePath lexer
-	0 1 index LexOutputFd set # inputFilePath lexer
+	0 1 index Path set # inputFilePath lexer
+	0 1 index FileDescriptor set # inputFilePath lexer
+	0 1 index BytesRead set # inputFilePath lexer
+
+	0 1 index Pointer set # inputFilePath lexer
+	0 1 index OutputFd set # inputFilePath lexer
+	lexerBufferSize array 1 index Buffer set # inputFilePath lexer
 
 	2 copy # inputFilePath lexer inputFilePath lexer
-	LexPath set # inputFilePath lexer
+	Path set # inputFilePath lexer
 	1 index # inputFilePath lexer inputFilePath
 	readOpen # inputFilePath lexer inputFileDescriptor
 	1 index # inputFilePath lexer inputFileDescriptor lexer
-	LexFileDescriptor set # inputFilePath lexer
+	FileDescriptor set # inputFilePath lexer
 
-	1 1 index LexHasNextLine set
+	1 1 index HasNextLine set # inputFilePath lexer
 
-	"./out.asm"c writeOpen
-	lexer LexOutputFd set
+	"./out.asm"c writeOpen # inputFilePath lexer outFd
+	1 index OutputFd set # inputFilePath lexer
+
 	# TODO: REPLACE STDLIB PATH WITH ACCURATE PATH
-	"%include \"./std/std.asm\"
-		global _main
-		default rel
+"%include \"./std/std.asm\"
+	global _main
+	default rel
 
-		section .text
-	_main:
-	"
-	lexer LexOutputFd get
-	fprint
+	section .text
+_main:
+" # inputFilePath lexer preamble
+	2 index OutputFd get # inputFilePath lexer preamble outFd
+	fprint # inputFilePath lexer
 
-	4096 array lexer LexTokens set
+	MaxBufferedTokens TokenSize * array 1 index PreviousTokens set
+	MaxBufferedTokens TokenSize * array 1 index NextTokens set
 
-	fillLexerBuffer call
+	swap 1 index InputPath set
+	dup lexerFillBuffer call
 	# TODO: This gets rid of the number of bytes read. Later, use this to check if the file ended
-	# lexer LexBytesRead get
+	# lexer BytesRead get
 	# "Inited lexer with %d bytes\n" pop printf
 } createLexer def
+
+
+{ # lexer
+	dup HasNextLine get # lexer hasNextLine
+	{
+		dup FileDescriptor get swap # fileDescriptor lexer
+		dup Buffer get swap # fileDescriptor buffer lexer
+		3 1 roll # lexer fileDescriptor buffer
+		lexerBufferSize readFileTo # lexer bytesRead
+		1 index BytesRead set # lexer
+		
+		dup BytesRead get lexerBufferSize = # lexer bufferIsFull
+		1 index HasNextLine set # lexer
+	} if
+	dup Buffer get
+	1 index Pointer set
+	pop
+} lexerFillBuffer def
+
+{  # lexer curr end
+	2 copy <
+	{
+		3 popN
+	}
+	{
+		1 index readByte '\n' =
+		{
+			2 index dup Line get 1+ swap Line set
+			-1 3 index LineOffset set
+		} if
+		2 index dup LineOffset get 1+ swap LineOffset set
+		swap 1 + swap
+		lexerUpdatePosition call
+	} ifelse
+} lexerUpdatePosition def # TODO: Rename to something to do with 'track position'/'handle newlines', etc
+
+
+{ # lexer goalgoalLexerPtr
+	dup # lexer goalLexerPtr goalLexerPtr
+	2 index Buffer get # lexer goalLexerPtr goalLexerPtr lexerBuffer
+	3 index BytesRead get # lexer goalLexerPtr goalLexerPtr lexerBuffer bytesRead
+	+ < # lexer goalLexerPtr (goalLexerPtr < lexerBuffer+ bytesRead)
+	# debugLexer call
+	{ # lexer goalLexerPtr
+		2 copy # lexer goalLexerPtr lexer goalLexerPtr
+		1 index BytesRead get
+		2 index Buffer get +
+		lexerUpdatePosition call # lexer goalLexerPtr
+
+		1 index HasNextLine get
+		{# lexer goalLexerPtr
+			pop
+			0 index Buffer get 
+			1 index BytesRead get
+			+
+		}
+		{# lexer goalLexerPtr
+			lexerBufferSize -
+			1 index lexerFillBuffer call
+			lexerAdvanceLoop call
+		}
+		ifelse
+	}
+	{ # lexer goalLexerPtr
+		dup
+		2 index Pointer get
+		swap
+		lexerUpdatePosition call
+	} ifelse
+	swap Pointer set
+} lexerAdvanceLoop def 
+
+{ # lexer count
+	1 index Pointer get + # lexer lexerPtr
+	1 index swap # lexer lexer lexerPtr
+	lexerAdvanceLoop call # lexer
+	
+	0 index Buffer get
+	1 index BytesRead get +
+	dup
+	2 index Pointer get 
+	<
+	{
+		2 popN
+	}
+	{
+		# debugBuffers call
+		swap Pointer set 
+		# debugBuffers call
+	} ifelse	
+} lexerAdvance def
+
+{  2 index OutputFd get fprint pop } lexerOutPrint def # lexer string size
+{  swap OutputFd get fprintf } lexerOutPrintf def # [...data...] lexer formatString
+
+
+"./compiler/Calculate.toast"c createLexer call 
+dup debugLexer call
+dup Pointer get
+printf
+dup lexerFillBuffer call 
+dup Pointer get
+printf
+
+# node bootstrap/js/toast.js compiler/lexer.toast -od bin -p
