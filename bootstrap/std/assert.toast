@@ -1,8 +1,13 @@
+[0] failedAssertCount def
+
+{ failedAssertCount 0 get 1+ failedAssertCount 0 set } incrementFails def
+{ failedAssertCount 0 get } getFailedAsserts def
 {
 	# display expected actual comparison message
 	4 copy pop # display expected actual comparison message expected actual comparison
 	call  # display expected actual comparison message areEqual
 	{
+		incrementFails call
 		swap pop # display expected actual message
 		3 -1 roll swap # display actual expected message
 		"Fail[%s]\n - Expected: "c printf # display actual expected
@@ -20,6 +25,7 @@
 	}
 	ifelse
 } assertComparison def
+
 
 # {
 # 	# expected actual comparison message
@@ -89,3 +95,7 @@
 	{ {"False"c}{"True"c} ifelse printf } 5 1 roll # displayNumber expected actual comparison message
 	assertComparison call
 } assertFalse def
+
+{
+	getFailedAsserts call exit
+} exitWithFailedAsserts def
