@@ -394,7 +394,7 @@ export class Compiler {
 		}
 
 		if (token) {
-			this.assemblySource += `\n\t%line ${token.location.line}+1 ${this.source.name}\n`
+			this.assemblySource += `\n\t%line ${token.location.line}+1 ${this.source.deepestSource.name}\n`
 			this.assemblySource += `\t;;--- ${unescapeString(tokenString(token))} ---\n`
 			compilerProcessor[token.type](this, token as any)
 		}

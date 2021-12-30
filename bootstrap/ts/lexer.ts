@@ -170,7 +170,7 @@ export class LexerSource {
 		if (this.includeDone()) {
 			return
 		}
-		const tokenLocation = { ...this.location }
+		const tokenLocation = { ...this.deepestSource.location }
 
 		/// Block expressions and comments
 		switch (currentChar) {
@@ -234,8 +234,11 @@ export class LexerSource {
 					throw ("Unterminated include path")
 				}
 				this.advanceOne()
-				this.includes = new LexerSourceFile(path.resolve(this.name, "../", includePath));
-				this.includes.includedIn = this;
+
+				const newSource = new LexerSourceFile(path.resolve(this.deepestSource.name, "../", includePath));
+				newSource.includedIn = this.deepestSource;
+				this.deepestSource.includes = newSource
+
 				return
 			}
 			else if (currentChar == "<") {
@@ -244,8 +247,9 @@ export class LexerSource {
 					throw ("Unterminated include path")
 				}
 				this.advanceOne()
-				this.includes = new LexerSourceFile(path.resolve(StandardLibraryDirectory, includePath));
-				this.includes.includedIn = this;
+				const newSource = new LexerSourceFile(path.resolve(StandardLibraryDirectory, includePath));
+				newSource.includedIn = this.deepestSource;
+				this.deepestSource.includes = newSource
 				return
 			}
 			// throw ("Invalid preprocessor command")

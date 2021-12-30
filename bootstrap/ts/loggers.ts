@@ -7,4 +7,3 @@ export const errorLogger = new BufferedStyledLogger(stdWrite, "toast {error}: ",
 export const warningLogger = new BufferedStyledLogger(stdWrite, "toast {warn}: ", "\n", ConsoleColor.Yellow)
 export const noteLogger = new BufferedStyledLogger(stdWrite, "toast {note}: ", "\n", ConsoleColor.Blue)
 export const debugLogger = new BufferedStyledLogger((buffer) => CompilerFlags[Flags.Debug] ? stdWrite(buffer) : null, "toast {debug}: ", "\n", ConsoleColor.Purple)
-
