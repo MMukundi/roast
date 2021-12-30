@@ -1,0 +1,33 @@
+%<stack>
+%<assert>
+
+1 4 createStack call
+dup 99 stackPush call
+dup 103 stackPush call
+dup 46 stackPush call
+dup 22 stackPush call
+dup stackPop call 22 swap "Fourth item added to stack"c assertEqual call
+dup stackPop call 46 swap "Third item added to stack"c assertEqual call
+dup stackPop call 103 swap "Second item added to stack"c assertEqual call
+dup stackPop call 99 swap "First item added to stack"c assertEqual call
+
+"-- Stack empty --\n" print
+
+dup 1 stackPush call
+dup 2 stackPush call
+dup stackPop call 2 swap "First item added to stack"c assertEqual call
+dup stackPop call 1 swap "First item added to stack"c assertEqual call 
+
+"-- Stack empty --\n" print
+
+dup 1 stackPush call
+dup 2 stackPush call
+dup 3 stackPush call
+dup 4 stackPush call
+dup stackPop call 4 swap "Fourth item added to stack"c assertEqual call
+dup stackPop call 3 swap "Third item added to stack"c assertEqual call
+dup stackPop call 2 swap "Second item added to stack"c assertEqual call
+dup stackPop call 1 swap "First item added to stack"c assertEqual call
+
+"-- Stack empty --\n" print
+exitWithFailedAsserts call

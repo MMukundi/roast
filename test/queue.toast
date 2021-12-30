@@ -1,0 +1,33 @@
+%<queue>
+%<assert>
+
+1 4 createQueue call
+dup 1 enqueue call
+dup 2 enqueue call
+dup 3 enqueue call
+dup 4 enqueue call
+dup dequeue call 1 swap "First in queue"c assertEqual call
+dup dequeue call 2 swap "Second in queue"c assertEqual call
+dup dequeue call 3 swap "Third in queue"c assertEqual call
+dup dequeue call 4 swap "Fourth in queue"c assertEqual call
+
+"-- Queue emptied --\n" print
+
+dup 1 enqueue call
+dup 2 enqueue call
+dup dequeue call 1 swap "First in emptied queue"c assertEqual call
+dup dequeue call 2 swap "Second in emptied queue"c assertEqual call
+
+"-- Queue emptied --\n" print
+
+dup 1 enqueue call
+dup 2 enqueue call
+dup 3 enqueue call
+dup 4 enqueue call
+
+dup dequeue call 1 swap "First in reemptied queue"c assertEqual call
+dup dequeue call 2 swap "Second in reemptied queue"c assertEqual call
+dup dequeue call 3 swap "Third in reemptied queue"c assertEqual call
+dup dequeue call 4 swap "Fourth in reemptied queue"c assertEqual call
+
+pop

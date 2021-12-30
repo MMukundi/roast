@@ -40,6 +40,8 @@ status 1+ readStatusByte def
 	# "examples/StringComp.toast"c
 	# "examples/TicTac.toast"c
 	"test/array.toast"c
+	"test/queue.toast"c
+	"test/stack.toast"c
 	"test/math.toast"c
 	"test/memcopy.toast"c
 ]
@@ -60,4 +62,4 @@ foreach call
 # NodeHome
 # command call
 
-# node bootstrap/js/toast.js test/test.toast     
+# node bootstrap/js/toast.js test/test.toast -od bin -p
