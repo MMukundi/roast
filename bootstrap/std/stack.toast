@@ -1,0 +1,68 @@
+0 StackCapacity def
+1 StackItemSize def
+2 StackData def
+4 StackSize def
+5 NumberStackProperties def
+
+{ # itemSize capacity
+	2 copy * # itemSize capacity totalSize
+	8* array # itemSize capacity Array[totalSize]
+	NumberStackProperties 8*  array # itemSize capacity Array[totalSize] stack
+	4 -2 roll # Array[totalSize] stack itemSize capacity 
+	2 index StackCapacity set # Array[totalSize] stack itemSize 
+	1 index StackItemSize set # Array[totalSize] stack 
+	swap 1 index StackData set # stack
+	0 1 index StackSize set # stack
+} createStack def
+
+{ # stack
+	StackSize get
+} stackSize def
+
+{ # stack
+	dup StackCapacity get swap StackSize get =
+} stackIsFull def
+
+{ # stack
+	StackSize get 0 =
+} stackIsEmpty def
+
+{ # stack 
+	0 stackIndex call
+
+	# dup StackData get swap
+	# dup StackSize get 1 - swap
+	# dup StackItemSize get swap
+	# pop
+	# * get
+} stackTop def
+
+{ # stack index
+	swap
+	dup StackData get swap
+	dup StackSize get 1 -
+	4 -1 roll - swap
+	StackItemSize get
+	* get
+} stackIndex def
+
+{ # stack value
+	swap
+	# Check capacity
+	dup stackIsFull call !
+	{
+		dup StackSize get dup 1 +  2 index StackSize set
+		1 index StackItemSize get * 
+		swap StackData get swap set
+	} if
+} stackPush def
+
+{ # stack
+	# Check capacity
+	dup stackIsEmpty call !
+	{
+		dup stackTop call
+		swap
+		dup StackSize get 1 - swap StackSize set
+	} if
+} stackPop def

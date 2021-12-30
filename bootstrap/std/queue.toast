@@ -1,0 +1,95 @@
+%<math>
+
+0 QCapacity def
+1 QItemSize def
+2 QData def
+3 QFront def
+4 QBack def
+5 QSize def
+6 NumberQueueProperties def
+
+{ # itemSize capacity
+	2 copy * # itemSize capacity totalSize
+	8* array # itemSize capacity Array[totalSize]
+	NumberQueueProperties 8*  array # itemSize capacity Array[totalSize] queue
+	4 -2 roll # Array[totalSize] queue itemSize capacity 
+	2 index QCapacity set # Array[totalSize] queue itemSize 
+	1 index QItemSize set # Array[totalSize] queue 
+	swap 1 index QData set # queue
+	0 1 index QFront set # queue
+	0 1 index QBack set # queue
+	0 1 index QSize set # queue
+} createQueue def
+
+{ # queue
+	QSize get
+} queueSize def
+
+{ # queue
+	dup QCapacity get swap QSize get =
+} queueIsFull def
+
+{ # queue
+	QSize get 0 =
+} queueIsEmpty def
+
+{ # queue
+	dup QData get swap
+	dup QFront get swap
+	dup QItemSize get swap
+	pop
+	* get
+} queueFront def
+
+{ # queue
+	dup QData get swap
+	dup QBack get 1 - swap 
+	dup QCapacity get swap
+	3 1 roll 
+	positiveMod call
+	swap QItemSize get *
+	get
+} queueBack def
+
+{ # stack index
+	swap
+	# 5 copy "%d %d %d %d %d\n"c printf
+	dup QData get swap
+	# 5 copy "%d %d %d %d %d\n"c printf
+	dup QFront get
+	# 5 copy "%d %d %d %d %d\n"c printf
+	4 -1 roll + swap
+	# 5 copy "%d %d %d %d %d\n"c printf
+	dup QCapacity get swap
+	3 1 roll 
+	positiveMod call swap
+	QItemSize get
+	*
+	# 5 copy "%d %d %d %d %d\n"c printf
+	get
+} queueIndex def
+
+{ # queue value
+	swap
+	# Check capacity
+	dup queueIsFull call !
+	{
+		dup QSize get 1 + 1 index QSize set
+		dup QBack get swap
+		dup QItemSize get swap 
+		3 1 roll * swap
+		QData get swap set
+		dup QBack get 1 + 1 index QCapacity get % 1 index QBack set
+	} if
+} enqueue def
+
+{ # queue
+	# Check capacity
+	dup queueIsEmpty call !
+	{
+		dup QSize get 1 - 1 index QSize set
+		dup queueFront call swap
+		dup QFront get 1 + 1 index QCapacity get % 1 index QFront set
+		pop
+	} if
+} dequeue def

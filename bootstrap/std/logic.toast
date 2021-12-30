@@ -1,0 +1,27 @@
+{ #secondPred firstPred
+	call
+	{
+		pop 0
+	}
+	{
+		call
+	}
+	ifelse
+} shortCircuitAnd def
+{ #secondPred firstPred
+	shortCircuitAnd call !
+} shortCircuitNand def
+
+{ #secondPred firstPred
+	call
+	{
+		call
+	}
+	{
+		pop 1
+	}
+	ifelse
+} shortCircuitOr def
+{ #secondPred firstPred
+	shortCircuitOr call !
+} shortCircuitNor def
