@@ -1,0 +1,37 @@
+{ # char
+	getDigit call 
+	dup 10 <
+	swap -1 >
+	*
+} isDigit def
+
+{ # char
+	'0' -
+} getDigit def
+
+{ # char
+	# Bulk this up
+	0 index ' ' =
+	1 index '\n' =
+	2 index '\t' =
+	3 index '\r' =
+	+ + +
+	swap pop
+} isWhitespace def
+
+{ # char
+	# 0 index '+' =
+	# 1 index '-' =
+	# 2 index '*' =
+	# 3 index '/' =
+	# 4 index '%' =
+	# + + + +
+	# swap pop
+	0 index '+' =
+	1 index '-' =
+	# 2 index '*' =
+	# 3 index '/' =
+	# 4 index '%' =
+	+
+	swap pop
+} isOperation def
