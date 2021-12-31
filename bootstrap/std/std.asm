@@ -1169,9 +1169,19 @@ sprint_f:
 	cmp al, 's'
 	je .str
 
+	cmp al, 'c'
+	je .char
+
 	; cmp al, '%'
 	; je print_f_next
 
+	jmp .next
+.char:
+	pop r8
+	mov r9, [StringHeapPointer]
+	mov byte[r9], r8b
+	lea r9, [r9+1]
+	mov [StringHeapPointer], r9
 	jmp .next
 .num:
 	pop rax
@@ -1321,9 +1331,24 @@ print_f_find_format:
 	cmp al, 's'
 	je print_f_str
 
+	cmp al, 'c'
+	je print_f_char
+
 	; cmp al, '%'
 	; je print_f_next
 
+	jmp print_f_next	
+print_f_char:
+	pop rax
+	lea rsp, [rsp-1]
+	mov byte[rsp], al
+	mov r9, rsp
+	push rdi
+	push r8
+	toastFilePrintString rdi,r9, 1 
+	pop r8
+	pop rdi
+	lea rsp, [rsp+1]
 	jmp print_f_next
 print_f_num:
 	pop rax
