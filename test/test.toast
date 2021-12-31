@@ -34,14 +34,9 @@ status 1+ readStatusByte def
 
 
 [
-	# "examples/Calculate.toast"c
-	# "examples/FastFib.toast"c
-	# "examples/Greet.toast"c
-	# "examples/StringComp.toast"c
-	# "examples/TicTac.toast"c
-	"test/array.toast"c
 	"test/queue.toast"c
 	"test/stack.toast"c
+	"test/array.toast"c
 	"test/math.toast"c
 	"test/memcopy.toast"c
 ]
