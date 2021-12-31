@@ -10,7 +10,7 @@
 
 { # itemSize capacity
 	2 copy * # itemSize capacity totalSize
-	8* array # itemSize capacity Array[totalSize]
+	8 * array # itemSize capacity Array[totalSize]
 	NumberQueueProperties 8*  array # itemSize capacity Array[totalSize] queue
 	4 -2 roll # Array[totalSize] queue itemSize capacity 
 	2 index QCapacity set # Array[totalSize] queue itemSize 
@@ -33,63 +33,108 @@
 	QSize get 0 =
 } queueIsEmpty def
 
+
+{ # queue index
+	swap # index queue
+	0 index QData get # index queue dataPtr
+	1 index QFront get # index queue dataPtr frontIndex
+	4 -1 roll + #  queue dataPtr (frontIndex+index)
+	2 index QCapacity get #  queue dataPtr (frontIndex+index) capacity
+	positiveMod call # queue dataPtr ((frontIndex+index)%capacity)
+	2 index QItemSize get # queue dataPtr ((frontIndex+index)%capacity) itemSize
+	* getPtr # queue dataPtr+((frontIndex+index)%capacity)*itemSize
+	swap pop
+} queueIndexPointer def
+
+{ # queue index
+	queueIndexPointer call read
+} queueIndex def
+
 { # queue
-	dup QData get swap
-	dup QFront get swap
-	dup QItemSize get swap
-	pop
-	* get
+	0 queueIndex call
 } queueFront def
 
 { # queue
-	dup QData get swap
-	dup QBack get 1 - swap 
-	dup QCapacity get swap
-	3 1 roll 
-	positiveMod call
-	swap QItemSize get *
-	get
+	dup QSize get 1 - queueIndex call
 } queueBack def
 
-{ # stack index
-	swap
-	# 5 copy "%d %d %d %d %d\n"c printf
-	dup QData get swap
-	# 5 copy "%d %d %d %d %d\n"c printf
-	dup QFront get
-	# 5 copy "%d %d %d %d %d\n"c printf
-	4 -1 roll + swap
-	# 5 copy "%d %d %d %d %d\n"c printf
-	dup QCapacity get swap
-	3 1 roll 
-	positiveMod call swap
-	QItemSize get
-	*
-	# 5 copy "%d %d %d %d %d\n"c printf
-	get
-} queueIndex def
 
+{ # queue
+	0 queueIndexPointer call
+} queueFrontPointer def
+
+{ # queue
+	dup QSize get 1 - queueIndexPointer call
+} queueBackPointer def
+
+
+{ # queue
+	# Check capacity
+	dup queueIsFull call !
+	{ pop }
+	{
+		dup QSize get 1 + 1 index QSize set
+		0 index QBack get # queue back
+		1 index QItemSize get  # queue back itemSize
+		swap 1 index # queue itemSize back itemSize
+		* # queue itemSize backIndex
+		2 index QData get # queue itemSize backIndex dataPtr
+		swap getPtr # queue itemSize itemPtr
+		3 -1 roll 
+
+		# Update queue 
+		0 index QBack get 1 +
+		1 index QCapacity get %
+		swap QBack set
+
+		swap
+		enqueueLoop call
+	} ifelse
+} enqueue def
 { # queue value
 	swap
 	# Check capacity
 	dup queueIsFull call !
+	{ pop }
 	{
 		dup QSize get 1 + 1 index QSize set
-		dup QBack get swap
-		dup QItemSize get swap 
-		3 1 roll * swap
-		QData get swap set
-		dup QBack get 1 + 1 index QCapacity get % 1 index QBack set
-	} if
-} enqueue def
+		0 index QBack get # queue back
+		1 index QItemSize get  # queue back itemSize
+		swap 1 index # queue itemSize back itemSize
+		* # queue itemSize backIndex
+		2 index QData get # queue itemSize backIndex dataPtr
+		swap getPtr # queue itemSize itemPtr
+		3 -1 roll # value itemSize itemPtr queue
+
+		# Update queue 
+		0 index QBack get 1 +
+		1 index QCapacity get %
+		swap QBack set
+
+		swap enqueueLoop call
+	} ifelse
+} enqueueSingle def
+{ # value dataPointer itemsLeft
+	3 2 roll # dataPointer itemsLeft value
+	2 index write # dataPointer itemsLeft
+	swap 1 getPtr swap
+	1 -
+	dup
+	{ 2 popN }
+	enqueueLoop ifelse	
+} enqueueLoop def
 
 { # queue
 	# Check capacity
 	dup queueIsEmpty call !
 	{
 		dup QSize get 1 - 1 index QSize set
-		dup queueFront call swap
+		dup queueFrontPointer call swap
 		dup QFront get 1 + 1 index QCapacity get % 1 index QFront set
-		pop
 	} if
+	pop
 } dequeue def
+{ # queue
+	# Check capacity
+	dequeue call read
+} dequeueSingle def

@@ -27,24 +27,28 @@
 	StackSize get 0 =
 } stackIsEmpty def
 
-{ # stack 
-	0 stackIndex call
-
-	# dup StackData get swap
-	# dup StackSize get 1 - swap
-	# dup StackItemSize get swap
-	# pop
-	# * get
-} stackTop def
+{ # stack index
+	swap # index stack
+	0 index StackData get # index stack dataPtr
+	1 index stackSize call 1 - # index stack dataPtr lastIndex
+	4 -1 roll - # stack dataPtr (lastIndex+index)
+	3 -1 roll # dataPtr (lastIndex+index) stack
+	StackItemSize get # dataPtr (lastIndex+index) itemSize
+	* 
+	getPtr # &dataPtr[(lastIndex+index)*itemSize]
+} stackIndexPointer def
 
 { # stack index
-	swap
-	dup StackData get swap
-	dup StackSize get 1 -
-	4 -1 roll - swap
-	StackItemSize get
-	* get
+	stackIndexPointer call read
 } stackIndex def
+
+{ # stack 
+	0 stackIndex call
+} stackTop def
+
+{ # stack 
+	0 stackIndexPointer call
+} stackTopPointer def
 
 { # stack value
 	swap
@@ -55,13 +59,45 @@
 		1 index StackItemSize get * 
 		swap StackData get swap set
 	} if
+} stackPushSingle def
+{ # [...data...] stack
+	# Check capacity
+	dup stackIsFull call !
+	{
+		dup StackSize get dup 1 +  2 index StackSize set
+		1 index StackItemSize get 
+		swap 1 index * # value stack itemSize index
+		3 -1 roll # value itemSize index stack
+		StackData get # value itemSize index dataPtr 
+		swap getPtr # value itemSize itemPtr 
+		swap stackPushLoop call
+	} if
 } stackPush def
+{ # value dataPointer itemsLeft
+	3 2 roll # dataPointer itemsLeft value
+	2 index write # dataPointer itemsLeft
+	swap 8 + swap
+	1 -
+	dup
+	stackPushLoop if
+	2 popN
+} stackPushLoop def
 
 { # stack
 	# Check capacity
 	dup stackIsEmpty call !
 	{
 		dup stackTop call
+		swap
+		dup StackSize get 1 - swap StackSize set
+	} if
+} stackPopSingle def
+
+{ # stack
+	# Check capacity
+	dup stackIsEmpty call !
+	{
+		dup stackTopPointer call
 		swap
 		dup StackSize get 1 - swap StackSize set
 	} if
