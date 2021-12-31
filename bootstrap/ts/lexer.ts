@@ -190,9 +190,11 @@ export class LexerSource {
 			// Support for character constants
 			case "\'": {
 				this.advanceOne()
+				let escape = false
 
 				if (this.current() == '\\') {
 					this.advanceOne()
+					escape = true
 				} else if (this.current() == '\'') {
 					throw ("Zero-length character literal")
 				}
@@ -202,7 +204,7 @@ export class LexerSource {
 					throw ("Character literal with more than one character")
 				}
 				this.advanceOne()
-				return makeToken(TokenType.Value, tokenLocation, escapeChar(char).charCodeAt(0))
+				return makeToken(TokenType.Value, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
 			}
 			case "\"": {
 				const stringLiteral = this.readStringLiteral()
