@@ -265,6 +265,16 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\tpop r8\n\ttoastExit r8\n`
 				return;
 
+			case 'getPtr':
+				// ... ptr index get
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8*8]\n\tpush r8\n`
+				return;
+
+			case 'getBytePtr':
+				// ... ptr index getByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8]\n\tpush r8\n`
+				return;
+
 			case 'get':
 				// ... ptr index get
 				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tmov r8, [r9+r8*8]\n\tpush r8\n`
@@ -276,11 +286,11 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			case 'getByte':
 				// ... ptr index getByte
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\txor r10, r10\n\tmov r10b, byte[r9+r8*8]\n\tpush r10\n`
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\txor r10, r10\n\tmov r10b, byte[r9+r8]\n\tpush r10\n`
 				return;
 			case 'setByte':
 				// ... val ptr index setByte
-				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov byte[r9+r8*8], r10b\n`
+				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov byte[r9+r8], r10b\n`
 				return;
 
 			case 'read':
@@ -313,7 +323,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		const defToken = compiler.source.lookAhead(1)
 		compiler.assemblySource += `\tlea r8, [${name}]\n`
-		if (!(defToken.type === TokenType.Name && defToken.value === "def")) {
+		if (defToken && !(defToken.type === TokenType.Name && defToken.value === "def")) {
 			compiler.assemblySource += `\tmov r8, [r8]\n`
 		}
 		compiler.assemblySource += `\tpush r8\n`
@@ -385,7 +395,7 @@ export class Compiler {
 		//? Fun note: This replacement enables tail recursion :O
 		const nextToken = this.source.lookAhead(1)
 
-		if (nextToken && nextToken.type === TokenType.CodeBlock) {
+		if (nextToken && nextToken.type === TokenType.CloseBlock) {
 			this.functionCall = "toastTailCallFunc"
 			this.stackFunctionCall = "toastTailCallStackFunc"
 		} else {
