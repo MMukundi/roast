@@ -192,16 +192,18 @@ _main:
 	} ifelse	
 } lexerAdvance def
 
+{ 0 index Pointer get 1 index BytesRead get print pop } lexerPrintBuffer def
+
 {  2 index OutputFd get fprint pop } lexerOutPrint def # lexer string size
 {  swap OutputFd get fprintf } lexerOutPrintf def # [...data...] lexer formatString
 
 
 "./compiler/Calculate.toast"c createLexer call 
 dup debugLexer call
-dup Pointer get
-printf
+
+dup lexerPrintBuffer call
+
 dup lexerFillBuffer call 
-dup Pointer get
-printf
+dup lexerPrintBuffer call
 
 # node bootstrap/js/toast.js compiler/lexer.toast -od bin -p
