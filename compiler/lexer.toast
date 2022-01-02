@@ -1,3 +1,4 @@
+%once
 %"./token.toast"
 
 5 lexerBufferSize def

@@ -4,32 +4,39 @@ import path from "path"
 const CommandLineArguments = process.argv
 /** The arguments to the compiler */
 export const CompilerArguments = CommandLineArguments.slice(2)
-
 /** An 'input' is any argument that doesn't start with a dash, and isn't input to an option */
 export const Inputs: string[] = []
-//CompilerArguments.filter(arg => !arg.startsWith('-'))
 
-
+/** The command line options which consume an input  */
 export enum Options {
-	/** The file to output to */
+	/** The file the compiler should output */
 	OutputFile = "o",
 	/** The directory the output file should be relative to */
 	OutputDirectory = "od"
 }
+/** The command line flags, which set internal booleans */
+export enum Flags {
+	/** If set, debug information will be printed */
+	Debug = "d",
+	/** If set, the assembler will also emit
+	 * a file with all macros and preprocessor
+	 * statements */
+	EmitPreprocessed = "p"
+}
+
+/** The compiler options, after parsing inputs from the command line  */
 export const CompilerOptions: Record<Options, string> = {
 	[Options.OutputFile]: "./out",
 	[Options.OutputDirectory]: "./",
 }
-export enum Flags {
-	/** If true, debug information will be printed */
-	Debug = "d",
-	EmitPreprocessed = "p"
-}
+
+/** The compiler flags, after parsing inputs from the command line  */
 export const CompilerFlags: Record<Flags, boolean> = {
 	[Flags.Debug]: false,
 	[Flags.EmitPreprocessed]: false,
 }
 
+// Iterate over the command line arguments, and parse the options and flags
 for (let argumentIndex = 0; argumentIndex < CompilerArguments.length; argumentIndex++) {
 	if (CompilerArguments[argumentIndex][0] == "-") {
 		//Handle options
@@ -45,6 +52,7 @@ for (let argumentIndex = 0; argumentIndex < CompilerArguments.length; argumentIn
 		Inputs.push(CompilerArguments[argumentIndex])
 	}
 }
+
 
 /** The first input, assumed to be the source file */
 export const SourceFile = Inputs[0]

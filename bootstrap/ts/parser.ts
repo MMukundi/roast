@@ -8,7 +8,7 @@ import { Token, SourceLocation, TokenMap, tokenString, TokenType, TokenValues } 
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
 import { toastImplicitConversions, closure, ToastType } from "./types"
 
-const EntryPoint = "_main"
+const EntryPoint = "_start"
 type TokenProcessor<T> = {
 	[type in TokenType]: (context: T, value: TokenMap[type]) => void
 }
@@ -189,7 +189,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`
 				return;
 			case 'array':
-				const sizeToken = compiler.source.lookBehind(1)
+				const sizeToken = compiler.lookBehind(1)
 				if (sizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
 					// TODO: Here, we can create const size arrays, but only if in the outer scope
 					// TODO: Do this in the parse value section
@@ -418,7 +418,7 @@ export class Compiler {
 	functionCall: string;
 	stackFunctionCall: string;
 
-	assemblySource: string = `%include "std.asm"\n\tglobal ${EntryPoint}\n\tdefault rel\n\n\tsection .text\n_main:`
+	assemblySource: string = `%include "std.asm"\n\tglobal ${EntryPoint}\n\tdefault rel\n\n\tsection .text\n${EntryPoint}:`
 
 	variableTypes: Record<string, ToastType> = {}
 
@@ -444,7 +444,7 @@ export class Compiler {
 		// }
 
 		if (token) {
-			this.assemblySource += `\n\t%line ${token.location.line}+0 ${this.source.deepestSource.name}\n`
+			this.assemblySource += `\n\t%line ${token.location.line}+0 ${token.location.sourceName}\n`
 			this.assemblySource += `\t;;--- ${unescapeString(tokenString(token))} ---\n`
 			compilerProcessor[token.type](this, token as any)
 		}

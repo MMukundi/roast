@@ -1,3 +1,4 @@
+%once
 { 
 	3 index 0 > { 3 -1 roll 4 1 roll 3 popN } { 3 -1 roll 2 index 2 index 
 	swap read swap call 

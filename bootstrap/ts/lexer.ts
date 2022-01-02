@@ -5,28 +5,38 @@ import { StandardLibraryDirectory } from "./arguments"
 import { makeToken, SourceLocation, Token, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
+/** The symbol representing both unary negation and subtraction */
 const NegativeSign = '-'
+
+/** The symbol which both indicates preprocessor
+ * statements as well as modular arithmetic */
 const IncludeSign = '%'
 
+/** The symbol which marks the beginning of a code block */
 const BlockStart = '{'
+/** The symbol which marks the end of a code block */
 const BlockEnd = '}'
 
-const ArrayStart = '['
-const ArrayEnd = ']'
+/** The symbol which marks the beginning of a list */
+const ListStart = '['
+/** The symbol which marks the end of a list */
+const ListEnd = ']'
 
-const DelimeterEnds = {
+const DelimiterEnds = {
 	[BlockStart]: {
 		end: BlockEnd,
 		type: TokenType.CodeBlock
 	},
-	[ArrayStart]: {
-		end: ArrayEnd,
+	[ListStart]: {
+		end: ListEnd,
 		type: TokenType.List
 	},
 } as const
 
-const ToastDelimiters = new Set([BlockStart, BlockEnd, ArrayStart, ArrayEnd])
+/** Special characters which should not be included in the variable names */
+const ToastDelimiters = new Set([BlockStart, BlockEnd, ListStart, ListEnd])
 
+/** A token scope containing all past and future tokens which have been parsed */
 interface Scope {
 	/** The stack of consumed tokens */
 	prevTokens: Token[]
@@ -36,6 +46,7 @@ interface Scope {
 }
 
 // TODO: This was previously abstract; was there a reason why?
+/** A location from which tokens can be read */
 export class LexerSource {
 	/** The raw text of this source */
 	protected text: string = ''
@@ -45,37 +56,62 @@ export class LexerSource {
 	/** An identifier for this lexer source, used when logging errors */
 	name: string = 'toastSource'
 
+	/** The lexer's location in some source file */
 	location: SourceLocation = {
-		/** The line the lexer is currently lexing */
 		line: 0,
-		/** The position from the front of the line the lexer is in */
-		column: 0
+		column: 0,
+		sourceName: null
 	}
+
+	/** The files which should not be included */
+	filesNotToInclude: Set<string> = new Set();
+
+	/** The locations where each variable is used */
 	variableUses: Record<string, Set<SourceLocation>> = {}
+
+	/** The locations where each variable is defined */
 	variableDefinitions: Record<string, Set<SourceLocation>> = {}
+
+	/** The locations where each function is defined */
 	functionDefinitions: Record<string, Set<SourceLocation>> = {}
 
+	/** The file currently being parsed
+	 * from an include directive in this source.
+	 * 	Together with @see this.includedIn,
+	 * this forms the include stack */
 	includes: LexerSource = null;
+
+	/** The source this source is included in.
+	 * 	Together with @see this.includes,
+	 * this forms the include stack
+	 */
 	includedIn: LexerSource = null;
 
+	/** The stack of scopes created by nested code blocks,
+	 * to isolate scopes from one another, contextually */
 	scopeStack: Scope[] = [{ prevTokens: [], nextTokens: [] }]
 
-
+	/** The source at the top of the include stack. */
 	get deepestSource(): LexerSource {
 		return this.includes ? this.includes.deepestSource : this
 	}
+
+	/** The scope at the top of the scope stack. */
 	get deepestScope(): Scope {
 		return this.scopeStack[this.scopeStack.length - 1]
 	}
 
+	/** The scope at the bottom of the scope stack. */
 	get globalScope(): Scope {
 		return this.scopeStack[0]
 	}
 
+	/** Iterates over all tokens in the global scope. */
 	[Symbol.iterator]() {
 		return this.globalScope.prevTokens[Symbol.iterator]()
 	}
 
+	/** Gets all of the tokens in the source. */
 	getAllTokens() {
 		while (!(this.done() && this.deepestScope.nextTokens.length == 0)) {
 			this.readToken()
@@ -103,24 +139,30 @@ export class LexerSource {
 			}
 		}
 	}
-	lookBehind(index = 1): Token {
-		return this.deepestScope.prevTokens[this.deepestScope.prevTokens.length - index]
-	}
 
-	lookAhead(index = 1): Token {
-		while (this.deepestScope.nextTokens.length < index && !this.done()) {
-			const token = this.parseToken()
-			if (token)
-				this.deepestScope.nextTokens.push(token)
-		}
-		return this.deepestScope.nextTokens[index - 1]
-	}
+	// lookBehind(index = 1): Token {
+	// 	return this.deepestScope.prevTokens[this.deepestScope.prevTokens.length - index]
+	// }
 
-	/** The current character. */
+	// lookAhead(index = 1): Token {
+	// 	while (this.deepestScope.nextTokens.length < index && !this.done()) {
+	// 		const token = this.parseToken()
+	// 		if (token)
+	// 			this.deepestScope.nextTokens.push(token)
+	// 	}
+	// 	return this.deepestScope.nextTokens[index - 1]
+	// }
+
+	/** Gets the current character.
+	 * @returns The current character.
+	 */
 	current() {
 		return this.deepestSource.text[this.deepestSource.index]
 	}
-	/** Moves forward in the text one character. */
+
+	/** Moves forward in the source one character.
+	 * @returns The character which was advanced past
+	 */
 	advanceOne() {
 
 		let current = this.current()
@@ -133,7 +175,12 @@ export class LexerSource {
 		this.deepestSource.index++
 		return current
 	}
-	/** Moves forward in the text. */
+
+	/** Moves forward in the text. 
+	 * @param count The number of characters to advance
+	 * @returns A string containing all of the characters
+	 * which were advanced past
+	*/
 	advance(count: number) {
 		let skipped = ""
 		for (let i = 0; !this.includeDone() && i < count; i++) {
@@ -141,7 +188,13 @@ export class LexerSource {
 		}
 		return skipped
 	}
-	/** Moves forward in the text as long as a condition is met. */
+	/** Moves forward in the text as long as a condition is met. 
+	 * @param predicate A function which takes in a character
+	 * and returns true while the lexer should continue to advance,
+	 * and false once the lexer should stop advancing
+	 * @returns A string containing all of the characters
+	 * which were advanced past
+	*/
 	advanceWhile(predicate: (char: string) => boolean) {
 		let skipped = ""
 		while (!this.includeDone() && predicate(this.current())) {
@@ -149,19 +202,38 @@ export class LexerSource {
 		}
 		return skipped
 	}
-	/** Moves forward in the text until as a condition is met. */
+
+	/** Moves forward in the text until as a condition is met.
+	 * @param predicate A function which takes in a character
+	 * and returns false while the lexer should continue to advance,
+	 * and true once the lexer should stop advancing
+	 * @returns A string containing all of the characters
+	 * which were advanced past
+	*/
 	advanceUntil(predicate: (char: string) => boolean) {
 		return this.advanceWhile((c) => !predicate(c))
 	}
-	/** Moves forward in the text until as a condition is met. */
+
+	/** Moves forward in the text until as a character is found. 
+	 * @param character The character to find
+	 * @returns A string containing all of the characters
+	 * which were advanced past before this character
+	*/
 	advanceUntilChar(character: string) {
 		return this.advanceUntil(() => this.current() === character)
 	}
-	/** Moves forward to the next non-whitespace character. */
+
+	/** Moves forward to the next non-whitespace character.
+	 * @returns A string containing all of the whitespace characters
+	 * which were advanced past
+	*/
 	skipWhitespace() {
 		this.advanceWhile(isWhitespace)
 	}
-	/** Moves forward to the next non-comment character. */
+	/** Moves forward to the next non-comment character. 
+	 * @param startChar The current character
+	 * @returns The first non-comment character
+	*/
 	skipComments(startChar?: string) {
 		let currentChar = startChar
 		while ((currentChar = this.current()) === "#") {
@@ -172,24 +244,40 @@ export class LexerSource {
 	}
 
 
-	/** Returns a character relatively indexed from the current one. */
+	/** Returns a character relatively indexed from the current one.
+	 * @param offset The index from the current character
+	 * @returns The character at the given index from the current one.
+	*/
 	get(offset: number = 0) {
 		return this.deepestSource.text[this.deepestSource.index + offset]
 	}
 
-	/** Returns a string representing the current location in the lexer source. */
+	/** Returns a string representing the current location in the lexer source. 
+	 * @param location The location to stringify
+	 * @returns A string representing the current location in the lexer source
+	*/
 	locationString(location: SourceLocation) {
 		return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
 	}
 
-	/** Returns whether or not the lexer source is completely consumed. */
+	/** Returns whether or not the lexer source is completely consumed.
+	 * @returns True if the lexer source is completely consumed, false otherwise
+	 */
 	done() {
 		return this.index >= this.text.length && (this.includeDone())
 	}
+
+	/** Returns whether or not the included lexer source is completely consumed.
+	 * @returns True if the included lexer source is completely consumed, false otherwise
+	 */
 	includeDone() {
 		return this.deepestSource.index >= this.deepestSource.text.length
 	}
 
+	/** Parses a string literal. 
+	 * @param endChar The character to signify the end of the string
+	 * @returns The string which was parsed
+	*/
 	readStringLiteral(endChar = "\"") {
 		const stringLiteral: string[] = []
 		let escapeNext = false
@@ -213,13 +301,18 @@ export class LexerSource {
 		return stringLiteral.join("")
 	}
 
-	/** Returns the next token in the lexer source. */
+	/** Returns the next token in the lexer source. 
+	 * @returns The token which was read
+	*/
 	readToken(): Token {
 		const token = this.deepestScope.nextTokens.length ? this.deepestScope.nextTokens.shift() : this.parseToken()
 		if (token)
 			this.deepestScope.prevTokens.push(token)
 		return token
 	}
+	/** Parses the next token in the lexer source. 
+	 * @returns The token which was read
+	*/
 	parseToken(): Token {
 		const token = this.getToken()
 		if (this.includeDone() && this.includes) {
@@ -227,6 +320,9 @@ export class LexerSource {
 		}
 		return token
 	}
+	/** Parses the next token in the lexer source. 
+	 * @returns The token which was read
+	*/
 	getToken(): Token {
 		assert(!this.done(), "Tried to read token after end of file")
 
@@ -236,7 +332,7 @@ export class LexerSource {
 		if (this.includeDone()) {
 			return
 		}
-		const tokenLocation = { ...this.deepestSource.location }
+		const tokenLocation = { ...this.deepestSource.location, sourceName: this.deepestSource.name }
 
 		/// Block expressions and comments
 		switch (currentChar) {
@@ -244,10 +340,10 @@ export class LexerSource {
 			// this.advanceOne()
 			// return makeToken(TokenType.OpenList, tokenLocation)
 			case BlockStart:
-			case ArrayStart:
+			case ListStart:
 				this.advanceOne()
 				const tokens: Token[] = []
-				const { end, type } = DelimeterEnds[currentChar]
+				const { end, type } = DelimiterEnds[currentChar]
 
 				if (currentChar === BlockStart) {
 					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
@@ -270,7 +366,7 @@ export class LexerSource {
 				throw ("Unbalanced block end")
 			// this.advanceOne()
 			// return makeToken(TokenType.CloseBlock, tokenLocation)
-			case ArrayEnd:
+			case ListEnd:
 				// this.advanceOne()
 				// return makeToken(TokenType.CloseList, tokenLocation)
 				throw ("Unbalanced array end")
@@ -318,26 +414,42 @@ export class LexerSource {
 
 		let currentCharAsDigit = currentChar ? digitCode(currentChar) : -1
 		if (firstChar == "%") {
+			let includeFilename = null
 			if (currentChar == "\"") {
 				const includePath = this.readStringLiteral()
 				if (this.current() !== '"') {
 					throw ("Unterminated include path")
 				}
+				includeFilename = path.resolve(this.deepestSource.name, "../", includePath)
 				this.advanceOne()
-
-				const newSource = new LexerSourceFile(path.resolve(this.deepestSource.name, "../", includePath));
-				newSource.includedIn = this.deepestSource;
-				this.deepestSource.includes = newSource
-
-				return
 			}
 			else if (currentChar == "<") {
 				const includePath = this.readStringLiteral(">")
 				if (this.current() !== '>') {
 					throw ("Unterminated include path")
 				}
+				includeFilename = path.resolve(StandardLibraryDirectory, includePath)
+			}
+			else if (currentChar == "o") {
+				const fileName = this.deepestSource.name
 				this.advanceOne()
-				const newSource = new LexerSourceFile(path.resolve(StandardLibraryDirectory, includePath));
+				let nChar = this.current()
+				this.advanceOne()
+				let cChar = this.current()
+				this.advanceOne()
+				let eChar = this.current()
+				if (nChar == "n" && cChar == "c" && eChar == "e") {
+					this.advanceOne()
+					this.filesNotToInclude.add(fileName)
+					return
+				}
+				throw ("Invalid preprocessor command")
+			}
+			includeFilename = toToastPath(includeFilename)
+			if (includeFilename && !this.filesNotToInclude.has(includeFilename)) {
+				// if (includeFilename) {
+				this.advanceOne()
+				const newSource = new LexerSourceFile(includeFilename);
 				newSource.includedIn = this.deepestSource;
 				this.deepestSource.includes = newSource
 				return
@@ -398,7 +510,11 @@ export class LexerSource {
 	}
 }
 
+/** A source file from which tokens can be read */
 export class LexerSourceFile extends LexerSource {
+	/** Creates a source file lexer
+	 * @param path The file to lex
+	*/
 	constructor(path: string) {
 		super()
 		path = toToastPath(path)

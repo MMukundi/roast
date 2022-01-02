@@ -68,8 +68,12 @@ export type TokenMap = {
 /** Any Token */
 export type Token = TokenMap[TokenType]
 export type SourceLocation = {
+	/** The number of lines to skip from the beginning of the file */
 	line: number
+	/** The number of characters to skip from the beginning of the line */
 	column: number
+	/** The name of the current source */
+	sourceName: string,
 }
 /** Creates a token of the given type */
 export function makeToken<T extends TokenType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {

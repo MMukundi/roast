@@ -1,3 +1,4 @@
+%once
 0 StackCapacity def
 1 StackItemSize def
 2 StackData def
