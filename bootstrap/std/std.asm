@@ -137,24 +137,43 @@ toastCurrentString: db %1, 0
 
 ;; -------- [End(Stack Macros)] --------
 ;; -------- [Begin(CodeBlock Macros)] --------
-%macro  toastBeginCodeBlock 0
+%macro  toastBeginCodeBlock 0-1
 	%push toastCodeBlock
 	;; ---- Push block begin address to stack ---- ;;
+	%if %0 = 1
+	; lea r8, [%1]
+	; push r8
+	; jmp %$ %+ %1 %+ _end:
+	jmp %1 %+ _end
+%1:
+	%else
 	lea r8, [%$BlockBegin]
 	push r8
-	;; ---- Skip blick for now ---- ;;
+	;; ---- Skip block for now ---- ;;
 	jmp %$BlockEnd
 %$BlockBegin:
+	%endif
 %endmacro
-%macro  toastEndCodeBlock 0
+%macro  toastEndCodeBlock 0-1
 	;; ---- Return to previous block ---- ;;
 	toastReturn
 ;; ---- Marker of block end ---- ;;
+%if %0 = 1
+; %$ %+ %1 %+ _end:
+%1 %+ _end:
+%else
 %$BlockEnd:
+%endif
 %pop
+
 %endmacro
 ;; -------- [End(CodeBlock Macros)] --------
 ;; -------- [Begin(Variable Macros)] --------
+%macro  toastRedefineVariable 0-1
+	pop r8 ; Variable location
+	pop r9 ; Varibale value
+	mov [r8], r9
+%endmacro
 %macro  toastDefineVariable 0-1
 	[section .bss]
 	toastCreateBuffer AddressBytes, %1
