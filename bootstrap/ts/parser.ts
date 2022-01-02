@@ -12,6 +12,15 @@ const EntryPoint = "_main"
 type TokenProcessor<T> = {
 	[type in TokenType]: (context: T, value: TokenMap[type]) => void
 }
+function OpenBlock(compiler: Compiler, name?: string) {
+	// Start a new label
+	compiler.assemblySource += `\ttoastBeginCodeBlock${name ? ` ${name}` : ""}\n`
+	compiler.scopeDepth++
+}
+function CloseBlock(compiler: Compiler, name?: string) {
+	compiler.assemblySource += `\ttoastEndCodeBlock${name ? ` ${name}` : ""}\n`
+	compiler.scopeDepth--
+}
 
 const compilerProcessor: TokenProcessor<Compiler> = {
 	[TokenType.OpenList](compiler) {
@@ -25,20 +34,40 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		compiler.assemblySource += `\ttoastArrayUntilMark\n`
 		// compiler.errorHere("compiling CloseList tokens not yet implemented", location)
 	},
-	[TokenType.List](compiler, { location }) {
-		// compiler.errorHere("compiling List tokens not yet implemented", location)
+	[TokenType.List](compiler, { value: { end, tokens }, location }) {
+		compilerProcessor[TokenType.OpenList](compiler, { value: null, location, type: TokenType.OpenList });
+		for (const token of tokens) {
+			compiler.writeToken(token)
+		}
+		compilerProcessor[TokenType.CloseList](compiler, { value: null, location: end, type: TokenType.CloseList });
 	},
 	[TokenType.OpenBlock](compiler) {
 		// Start a new label
-		compiler.assemblySource += `\ttoastBeginCodeBlock\n`
-		compiler.scopeDepth++
+		OpenBlock(compiler)
 	},
 	[TokenType.CloseBlock](compiler) {
-		compiler.assemblySource += `\ttoastEndCodeBlock\n`
-		compiler.scopeDepth--
+		CloseBlock(compiler)
 	},
-	[TokenType.CodeBlock](compiler, { location }) {
-		// compiler.errorHere("compiling CodeBlock tokens not yet implemented", location)
+	[TokenType.CodeBlock](compiler, { value: { tokens, end }, location }) {
+		const nameToken = compiler.lookAhead(1)
+		const defToken = compiler.lookAhead(2)
+
+		let name = null
+
+		// If this is a variable definition
+		if (defToken && nameToken && nameToken.type === TokenType.Name && defToken.type === TokenType.Name && defToken.value == "def") {
+			name = nameToken.value
+			// Consuming the name and def tokens, as tjey does not need to recompile in this case
+			compiler.currentContext.index += 2
+		}
+
+		compiler.contextStack.push({ index: 0, tokens })
+		OpenBlock(compiler, name)
+		for (; compiler.currentContext.index < tokens.length; compiler.currentContext.index++) {
+			compiler.writeToken(compiler.currentContext.tokens[compiler.currentContext.index])
+		}
+		CloseBlock(compiler, name)
+		compiler.contextStack.pop()
 	},
 	[TokenType.Name](compiler, { value: name, location }) {
 		switch (name) {
@@ -241,10 +270,16 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastIndex\n`
 				return;
 			case 'def':
-				const nameToken = compiler.source.lookBehind(2)
+				const nameToken = compiler.lookBehind(1)
 				if (nameToken.type === TokenType.Name) {
-					compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
+					const valueToken = compiler.lookBehind(2)
+					if ((valueToken.type === TokenType.CodeBlock || valueToken.type === TokenType.List) && valueToken.value.name != null) {
+						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`
+					} else {
+						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
+					}
 				} else {
+					// console.log(nameToken)
 					errorLogger.flushLog("Missing name token to define variable")
 				}
 				return;
@@ -321,9 +356,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 		}
 
-		const defToken = compiler.source.lookAhead(1)
+		const defToken = compiler.lookAhead(1)
 		compiler.assemblySource += `\tlea r8, [${name}]\n`
-		if (defToken && !(defToken.type === TokenType.Name && defToken.value === "def")) {
+		if (defToken && !(defToken.type === TokenType.Name && defToken.value === "def") && compiler.source.functionDefinitions[name] == undefined) {
 			compiler.assemblySource += `\tmov r8, [r8]\n`
 		}
 		compiler.assemblySource += `\tpush r8\n`
@@ -371,6 +406,9 @@ export class Compiler {
 		return c
 	}
 
+	// definedNames: Record<string, { locationDefined: SourceLocation }> = {}
+	namedFunctions: Record<string, { functionLocation: SourceLocation }> = {}
+
 	scopeDepth: number = 0
 
 	outputBasename: string = "./out"
@@ -384,6 +422,8 @@ export class Compiler {
 
 	variableTypes: Record<string, ToastType> = {}
 
+	contextStack: { index: number, tokens: Token[] }[] = []
+
 	constructor() {
 
 	}
@@ -393,31 +433,53 @@ export class Compiler {
 
 	writeToken(token: Token) {
 		//? Fun note: This replacement enables tail recursion :O
-		const nextToken = this.source.lookAhead(1)
+		// const nextToken = this.lookAhead(1)
 
-		if (nextToken && nextToken.type === TokenType.CloseBlock) {
-			this.functionCall = "toastTailCallFunc"
-			this.stackFunctionCall = "toastTailCallStackFunc"
-		} else {
-			this.functionCall = "toastCallFunc"
-			this.stackFunctionCall = "toastCallStackFunc"
-		}
+		// if (nextToken && nextToken.type === TokenType.CloseBlock) {
+		// 	this.functionCall = "toastTailCallFunc"
+		// 	this.stackFunctionCall = "toastTailCallStackFunc"
+		// } else {
+		this.functionCall = "toastCallFunc"
+		this.stackFunctionCall = "toastCallStackFunc"
+		// }
 
 		if (token) {
-			this.assemblySource += `\n\t%line ${token.location.line}+1 ${this.source.deepestSource.name}\n`
+			this.assemblySource += `\n\t%line ${token.location.line}+0 ${this.source.deepestSource.name}\n`
 			this.assemblySource += `\t;;--- ${unescapeString(tokenString(token))} ---\n`
 			compilerProcessor[token.type](this, token as any)
 		}
+
 	}
 	write(s: string) {
 		this.assemblySource += s
 	}
 
+	get currentContext() {
+		return this.contextStack[this.contextStack.length - 1]
+	}
+
 	generateAssembly() {
-		for (const token of this.source) {
+		this.source.getAllTokens()
+		this.contextStack.push({ index: 0, tokens: this.source.deepestScope.prevTokens })
+		while (this.contextStack.length) {
+			const token = this.currentContext.tokens[this.currentContext.index]
 			this.writeToken(token)
+			if (this.currentContext?.index >= this.currentContext?.tokens.length) {
+				this.contextStack.pop()
+			}
+			if (this.currentContext) {
+				this.currentContext.index++
+			}
 		}
 	}
+
+	lookAhead(index = 1) {
+		return this.currentContext.tokens[this.currentContext.index + index]
+	}
+	lookBehind(index = 1) {
+		return this.currentContext.tokens[this.currentContext.index - index]
+	}
+
 	save(): void {
 		if (this.outputBasename) {
 			execSync(`mkdir -p ${path.dirname(this.outputBasename)}`, {

@@ -388,7 +388,8 @@ export class LexerSource {
 				}
 				return false
 			})
-			if (isWhitespace(this.current())) {
+			const charAfter = this.current()
+			if (charAfter && isWhitespace(charAfter)) {
 				this.advanceOne()
 			}
 
