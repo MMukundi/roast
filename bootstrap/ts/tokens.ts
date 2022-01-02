@@ -44,8 +44,8 @@ export type TokenValues = {
 
 	[TokenType.Name]: string
 	[TokenType.Value]: number
-	[TokenType.CodeBlock]: TokenList
-	[TokenType.List]: TokenList
+	[TokenType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string }
+	[TokenType.List]: { tokens: TokenList, end: SourceLocation, name?: string }
 	[TokenType.String]: string
 	[TokenType.CString]: string
 }
@@ -78,7 +78,7 @@ export function makeToken<T extends TokenType>(type: T, location: SourceLocation
 export function tokenString(token: Token): string {
 	switch (token.type) {
 		case TokenType.CodeBlock:
-			const values = token.value
+			const values = token.value.tokens
 			const firsts: TokenList = values.slice(0, 3)
 			let summary: TokenList[] = (firsts.length + 2 >= values.length) ? [firsts] : [firsts, [values[values.length - 1]]]
 			return (`CodeBlock<${values.length} instructions>{${summary.map(tokenList => tokenList.map(summaryToken => tokenString(summaryToken))).join("...")}}`)
