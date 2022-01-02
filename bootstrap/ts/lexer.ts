@@ -7,6 +7,34 @@ import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from ".
 
 const NegativeSign = '-'
 const IncludeSign = '%'
+
+const BlockStart = '{'
+const BlockEnd = '}'
+
+const ArrayStart = '['
+const ArrayEnd = ']'
+
+const DelimeterEnds = {
+	[BlockStart]: {
+		end: BlockEnd,
+		type: TokenType.CodeBlock
+	},
+	[ArrayStart]: {
+		end: ArrayEnd,
+		type: TokenType.List
+	},
+} as const
+
+const ToastDelimiters = new Set([BlockStart, BlockEnd, ArrayStart, ArrayEnd])
+
+interface Scope {
+	/** The stack of consumed tokens */
+	prevTokens: Token[]
+
+	/** The queue of tokens parsed for lookahead, but not yet consumed */
+	nextTokens: Token[]
+}
+
 // TODO: This was previously abstract; was there a reason why?
 export class LexerSource {
 	/** The raw text of this source */
@@ -23,38 +51,69 @@ export class LexerSource {
 		/** The position from the front of the line the lexer is in */
 		column: 0
 	}
+	variableUses: Record<string, Set<SourceLocation>> = {}
+	variableDefinitions: Record<string, Set<SourceLocation>> = {}
+	functionDefinitions: Record<string, Set<SourceLocation>> = {}
+
 	includes: LexerSource = null;
 	includedIn: LexerSource = null;
 
-	/** The stack of consumed tokens */
-	prevTokens: Token[] = []
+	scopeStack: Scope[] = [{ prevTokens: [], nextTokens: [] }]
 
-	/** The queue of tokens parsed for lookahead, but not yet consumed */
-	nextTokens: Token[] = []
 
 	get deepestSource(): LexerSource {
 		return this.includes ? this.includes.deepestSource : this
 	}
-
-	*[Symbol.iterator]() {
-		while (!(this.done() && this.nextTokens.length == 0)) {
-			const token = this.readToken()
-			if (token)
-				yield token
-		}
+	get deepestScope(): Scope {
+		return this.scopeStack[this.scopeStack.length - 1]
 	}
 
+	get globalScope(): Scope {
+		return this.scopeStack[0]
+	}
+
+	[Symbol.iterator]() {
+		return this.globalScope.prevTokens[Symbol.iterator]()
+	}
+
+	getAllTokens() {
+		while (!(this.done() && this.deepestScope.nextTokens.length == 0)) {
+			this.readToken()
+			// const token = this.readToken()
+			// if (token)
+			// 	yield token
+		}
+		for (let i = 0; i < this.globalScope.prevTokens.length; i++) {
+			const token = this.globalScope.prevTokens[i]
+			const nextToken = this.globalScope.prevTokens[i + 1]
+
+			if (token.type === TokenType.Name) {
+				if (nextToken && nextToken.type == TokenType.Name && nextToken.value == "def") {
+					const prevToken = this.globalScope.prevTokens[i - 1]
+					const map = (prevToken && prevToken.type == TokenType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
+
+					map[token.value] = map[token.value] || new Set()
+					map[token.value].add(nextToken.location)
+					i++
+				}
+				else {
+					this.variableUses[token.value] = this.variableUses[token.value] || new Set()
+					this.variableUses[token.value].add(token.location)
+				}
+			}
+		}
+	}
 	lookBehind(index = 1): Token {
-		return this.prevTokens[this.prevTokens.length - index]
+		return this.deepestScope.prevTokens[this.deepestScope.prevTokens.length - index]
 	}
 
 	lookAhead(index = 1): Token {
-		while (this.nextTokens.length < index && !this.done()) {
+		while (this.deepestScope.nextTokens.length < index && !this.done()) {
 			const token = this.parseToken()
 			if (token)
-				this.nextTokens.push(token)
+				this.deepestScope.nextTokens.push(token)
 		}
-		return this.nextTokens[index - 1]
+		return this.deepestScope.nextTokens[index - 1]
 	}
 
 	/** The current character. */
@@ -102,6 +161,17 @@ export class LexerSource {
 	skipWhitespace() {
 		this.advanceWhile(isWhitespace)
 	}
+	/** Moves forward to the next non-comment character. */
+	skipComments(startChar?: string) {
+		let currentChar = startChar
+		while ((currentChar = this.current()) === "#") {
+			this.advanceUntilChar("\n")
+			this.skipWhitespace()
+		}
+		return currentChar
+	}
+
+
 	/** Returns a character relatively indexed from the current one. */
 	get(offset: number = 0) {
 		return this.deepestSource.text[this.deepestSource.index + offset]
@@ -145,9 +215,9 @@ export class LexerSource {
 
 	/** Returns the next token in the lexer source. */
 	readToken(): Token {
-		const token = this.nextTokens.length ? this.nextTokens.shift() : this.parseToken()
+		const token = this.deepestScope.nextTokens.length ? this.deepestScope.nextTokens.shift() : this.parseToken()
 		if (token)
-			this.prevTokens.push(token)
+			this.deepestScope.prevTokens.push(token)
 		return token
 	}
 	parseToken(): Token {
@@ -160,13 +230,9 @@ export class LexerSource {
 	getToken(): Token {
 		assert(!this.done(), "Tried to read token after end of file")
 
-		let currentChar;
 		// Skip comments
 		this.skipWhitespace()
-		while ((currentChar = this.current()) === "#") {
-			this.advanceUntilChar("\n")
-			this.skipWhitespace()
-		}
+		let currentChar = this.skipComments()
 		if (this.includeDone()) {
 			return
 		}
@@ -175,18 +241,40 @@ export class LexerSource {
 		/// Block expressions and comments
 		switch (currentChar) {
 			// Testing for unary negation
-			case "{":
+			// this.advanceOne()
+			// return makeToken(TokenType.OpenList, tokenLocation)
+			case BlockStart:
+			case ArrayStart:
 				this.advanceOne()
-				return makeToken(TokenType.OpenBlock, tokenLocation)
-			case "}":
+				const tokens: Token[] = []
+				const { end, type } = DelimeterEnds[currentChar]
+
+				if (currentChar === BlockStart) {
+					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
+				}
+
+				while (this.current() != end) {
+					const token = this.parseToken()
+					this.skipWhitespace()
+					this.skipComments()
+					tokens.push(token)
+				}
+				if (currentChar === BlockStart) {
+					this.scopeStack.pop()
+				}
+
 				this.advanceOne()
-				return makeToken(TokenType.CloseBlock, tokenLocation)
-			case "[":
-				this.advanceOne()
-				return makeToken(TokenType.OpenList, tokenLocation)
-			case "]":
-				this.advanceOne()
-				return makeToken(TokenType.CloseList, tokenLocation)
+
+				return makeToken(type, tokenLocation, { tokens, end: { ...this.location }, name: null }) as Token
+			case BlockEnd:
+				throw ("Unbalanced block end")
+			// this.advanceOne()
+			// return makeToken(TokenType.CloseBlock, tokenLocation)
+			case ArrayEnd:
+				// this.advanceOne()
+				// return makeToken(TokenType.CloseList, tokenLocation)
+				throw ("Unbalanced array end")
+
 			// Support for character constants
 			case "\'": {
 				this.advanceOne()
@@ -291,20 +379,20 @@ export class LexerSource {
 			}
 			return makeToken(TokenType.Value, tokenLocation, value)
 		} else {
-			const name: string[] = []
+			let name: string = firstChar == "-" ? "-" : ""
 
-			if (firstChar == "-")
-				name.push(NegativeSign)
-			this.advanceWhile(() => {
+			name += this.advanceWhile(() => {
 				const current = this.current()
-				if (!isWhitespace(current)) {
-					name.push(current)
+				if (!(isWhitespace(current) || ToastDelimiters.has(current))) {
 					return true;
 				}
 				return false
 			})
-			this.advanceOne()
-			return makeToken(TokenType.Name, tokenLocation, name.join(""))
+			if (isWhitespace(this.current())) {
+				this.advanceOne()
+			}
+
+			return makeToken(TokenType.Name, tokenLocation, name)
 		}
 	}
 }
