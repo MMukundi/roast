@@ -390,14 +390,38 @@ toastCreateBuffer %1, %%buffer
 %endmacro
 ;; -- toastTwoStackOperandsInstruction instructionName --
 ;; -- Performs an instruction on the top two stack operands -- 
-%macro toastTwoStackOperandsInstruction 1
+%macro toastTwoStackOperandsInstruction 1-2 rcx
 	toastPopTwoStackOperands
-	%1 rax, rcx
+	%1 rax, %2
 %endmacro
 ;; -- toastTwoStackOperandsInstruction instructionName --
 ;; -- Performs an instruction on the top two stack operands -- 
 %macro toastStackCompute 1
 	toastTwoStackOperandsInstruction %1
+	push rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackLogic 1
+	toastTwoStackOperandsInstruction %1, CL
+	push rax
+%endmacro
+
+;; -- toastPopTwoStackOperands --
+;; -- Loads the top two operands from the stack
+%macro toastPopStackOperand 0
+	pop rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackOperandInstruction 1
+	toastPopStackOperand
+	%1 rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackComputeOne 1
+	toastStackOperandInstruction %1
 	push rax
 %endmacro
 
