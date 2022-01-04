@@ -36,9 +36,11 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	},
 	[TokenType.List](compiler, { value: { end, tokens }, location }) {
 		compilerProcessor[TokenType.OpenList](compiler, { value: null, location, type: TokenType.OpenList });
+		compiler.contextStack.push({ index: 0, tokens })
 		for (const token of tokens) {
 			compiler.writeToken(token)
 		}
+		compiler.contextStack.pop()
 		compilerProcessor[TokenType.CloseList](compiler, { value: null, location: end, type: TokenType.CloseList });
 	},
 	[TokenType.OpenBlock](compiler) {
@@ -56,6 +58,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		// If this is a variable definition
 		if (defToken && nameToken && nameToken.type === TokenType.Name && defToken.type === TokenType.Name && defToken.value == "def") {
+			// console.log("def!")
 			name = nameToken.value
 			// Consuming the name and def tokens, as tjey does not need to recompile in this case
 			compiler.currentContext.index += 2
@@ -114,6 +117,26 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastStackSyscall 6\n`
 				return;
 
+			/// Bits
+			case '<<':
+				compiler.assemblySource += `\ttoastStackLogic shl\n`
+				return;
+			case '>>':
+				compiler.assemblySource += `\ttoastStackLogic shr\n`
+				return;
+			case '^':
+				compiler.assemblySource += `\ttoastStackCompute xor\n`
+				return;
+			case '|':
+				compiler.assemblySource += `\ttoastStackCompute or\n`
+				return;
+			case '&':
+				compiler.assemblySource += `\ttoastStackCompute and\n`
+				return;
+			case '~':
+				compiler.assemblySource += `\toastStackComputeOne not\n`
+				return;
+
 			/// Math
 			case '+':
 				compiler.assemblySource += `\ttoastStackCompute add\n`
@@ -152,7 +175,15 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastStackCompare ne\n`
 				return;
 
+			// Logic
 			// TODO: RETOOL NEGATION 
+			case 'true':
+				compiler.assemblySource += "\tpush 1"
+				return;
+			case 'false':
+				compiler.assemblySource += "\tpush 0"
+				return;
+
 			case '!':
 				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
 				return;
@@ -269,6 +300,15 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 			case 'index':
 				compiler.assemblySource += `\ttoastIndex\n`
 				return;
+			case 'redef':
+				const redefineNameToken = compiler.lookBehind(1)
+				if (redefineNameToken.type === TokenType.Name) {
+					compiler.assemblySource += `\ttoastRedefineVariable ${redefineNameToken.value}\n`
+				} else {
+					// console.log(nameToken)
+					errorLogger.flushLog("Missing name token to define variable")
+				}
+				return;
 			case 'def':
 				const nameToken = compiler.lookBehind(1)
 				if (nameToken.type === TokenType.Name) {
@@ -358,7 +398,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		const defToken = compiler.lookAhead(1)
 		compiler.assemblySource += `\tlea r8, [${name}]\n`
-		if (defToken && !(defToken.type === TokenType.Name && defToken.value === "def") && compiler.source.functionDefinitions[name] == undefined) {
+		if (defToken && !(defToken.type === TokenType.Name && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
 			compiler.assemblySource += `\tmov r8, [r8]\n`
 		}
 		compiler.assemblySource += `\tpush r8\n`
