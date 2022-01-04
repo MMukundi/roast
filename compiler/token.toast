@@ -1,1 +1,106 @@
-2 TokenSize def
+%once
+
+0 ListToken    def
+1 BlockToken   def
+2 IntToken     def
+3 NameToken    def
+4 StringToken  def
+5 CStringToken def
+
+[
+	{ length "(List: %d values)"c printf }
+	{ length "(Block: %d instructions)"c printf }
+	{ "(Int: %d)"c printf }
+	{ "(Name: %s)"c printf }
+	{ "(String: %s)"c printf }
+	{ "(CString: %s)"c printf }
+] TokenPrinters def
+
+
+0 LocationLine   def
+1 LocationColumn def
+2 LocationSource def
+3 LocationSize   def
+LocationSize 8 * LocationBytes   def
+
+0 TokenType     def
+1 TokenLocation def
+2 TokenValue    def
+3 TokenSize     def
+TokenSize 8 * TokenBytes def
+
+{ # source line column
+	LocationBytes array # source line column array
+	swap 1 index LocationColumn set
+	swap 1 index LocationLine set
+	swap 1 index LocationSource set
+} makeLocation def
+
+{ # location
+	0 index LocationColumn get 1+ swap LocationColumn set
+} locationIncrementColumn def
+{ # column location
+	LocationColumn set
+} locationSetColumn def
+{ # location
+	LocationColumn get
+} locationGetColumn def
+
+{ # location
+	0 index LocationLine get 1 + 1 index LocationLine set
+	0 swap LocationColumn set
+} locationIncrementLine def
+{ # column location
+	LocationLine set
+} locationSetLine def
+{ # location
+	LocationLine get
+} locationGetLine def
+
+{ # type location value
+	TokenBytes array  # type location value array
+	swap 1 index TokenValue set
+	swap 1 index TokenLocation set
+	swap 1 index TokenType set
+} makeToken def
+{ # token
+	dup TokenLocation get # token location
+	debugLocation call
+	dup TokenValue get # token value
+	swap TokenType get # value type
+	TokenPrinters swap get
+	call
+} debugToken def
+{
+	dup LocationColumn get 1+ swap
+	dup LocationLine get 1+ swap
+	dup LocationSource get swap pop
+	"[%s:%d:%d]"c printf
+} debugLocation def
+
+{
+	# TODO: Consider a memcopy solution here
+	dup LocationSource get swap
+	dup LocationLine get swap
+	dup LocationColumn get swap
+	pop
+	makeToken call
+	# "[%s:%d:%d]"c printf
+} copyLocation def
+
+IntToken
+"./testLocation.toast"c 1 2 makeLocation call
+6 makeToken call
+debugToken call
+"\n" print
+
+BlockToken
+"./lexer.toast"c 3 4 makeLocation call
+[1 2 3] makeToken call
+debugToken call
+"\n" print
+
+ListToken
+"./lexer.toast"c 3 4 makeLocation call
+[1 2 3] makeToken call
+debugToken call
