@@ -9,6 +9,8 @@ export function escapeChar(c: string): string {
 			return '\t' as string;
 		case "r":
 			return '\r' as string;
+		case "0":
+			return '\0' as string;
 		case '"':
 			return '"' as string;
 		default:
@@ -23,8 +25,10 @@ export function unescapeChar(c: string): string {
 			return '\\t' as string;
 		case "\r":
 			return '\\r' as string;
+		case "\0":
+			return '\\0' as string;
 		case '"':
-			return '"' as string;
+			return '\\"' as string;
 		default:
 			return c;
 	}
