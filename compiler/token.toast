@@ -30,7 +30,7 @@ LocationSize 8 * LocationBytes   def
 TokenSize 8 * TokenBytes def
 
 { # source line column
-	LocationBytes array # source line column array
+	LocationBytes buffer # source line column buffer
 	swap 1 index LocationColumn set
 	swap 1 index LocationLine set
 	swap 1 index LocationSource set
@@ -58,7 +58,7 @@ TokenSize 8 * TokenBytes def
 } locationGetLine def
 
 { # type location value
-	TokenBytes array  # type location value array
+	TokenBytes buffer  # type location value buffer
 	swap 1 index TokenValue set
 	swap 1 index TokenLocation set
 	swap 1 index TokenType set

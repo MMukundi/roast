@@ -11,8 +11,8 @@
 
 { # itemSize capacity
 	2 copy * # itemSize capacity totalSize
-	8 * array # itemSize capacity Array[totalSize]
-	NumberQueueProperties 8*  array # itemSize capacity Array[totalSize] queue
+	8 * buffer # itemSize capacity Array[totalSize]
+	NumberQueueProperties 8* buffer # itemSize capacity Array[totalSize] queue
 	4 -2 roll # Array[totalSize] queue itemSize capacity 
 	2 index QCapacity set # Array[totalSize] queue itemSize 
 	1 index QItemSize set # Array[totalSize] queue 
