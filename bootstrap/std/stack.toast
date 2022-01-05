@@ -7,8 +7,8 @@
 
 { # itemSize capacity
 	2 copy * # itemSize capacity totalSize
-	8* array # itemSize capacity Array[totalSize]
-	NumberStackProperties 8*  array # itemSize capacity Array[totalSize] stack
+	8* buffer # itemSize capacity Array[totalSize]
+	NumberStackProperties 8* buffer # itemSize capacity Array[totalSize] stack
 	4 -2 roll # Array[totalSize] stack itemSize capacity 
 	2 index StackCapacity set # Array[totalSize] stack itemSize 
 	1 index StackItemSize set # Array[totalSize] stack 

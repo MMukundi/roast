@@ -63,8 +63,8 @@ pop
 # 0 ValueTokenType def
 
 { # inputFilePath
-	NumberOfLexerProperties array # inputFilePath lexer
-	# 8 8 * array # inputFilePath lexer
+	NumberOfLexerProperties buffer # inputFilePath lexer
+	# 8 8 * buffer # inputFilePath lexer
 
 	0 1 index HasNextLine set # inputFilePath lexer
 	1 index 0 0 makeLocation call 1 index Location set # inputFilePath lexer
@@ -75,7 +75,7 @@ pop
 
 	0 1 index Pointer set # inputFilePath lexer
 	0 1 index OutputFd set # inputFilePath lexer
-	lexerBufferSize array 1 index Buffer set # inputFilePath lexer
+	lexerBufferSize buffer 1 index Buffer set # inputFilePath lexer
 
 	2 copy # inputFilePath lexer inputFilePath lexer
 	Path set # inputFilePath lexer
@@ -100,8 +100,8 @@ _main:
 	2 index OutputFd get # inputFilePath lexer preamble outFd
 	fprint # inputFilePath lexer
 
-	MaxBufferedTokens TokenSize * array 1 index PreviousTokens set
-	MaxBufferedTokens TokenSize * array 1 index NextTokens set
+	MaxBufferedTokens TokenSize * buffer 1 index PreviousTokens set
+	MaxBufferedTokens TokenSize * buffer 1 index NextTokens set
 
 	swap 1 index InputPath set
 	dup lexerFillBuffer call
@@ -249,7 +249,7 @@ _main:
 	} ifelse
 } lexerAdvanceWhileLoop def
 { # lexer predicate
-	50 array 3 1 roll
+	50 buffer 3 1 roll
 	2 index
 	lexerAdvanceWhileLoop call
 } lexerAdvanceWhile def
