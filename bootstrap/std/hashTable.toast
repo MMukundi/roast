@@ -109,6 +109,7 @@ HashTableProperties 8 * HashTableBytes def
 		
 		dup
 		{
+			pop
 			0
 		}
 		{	
@@ -162,11 +163,11 @@ HashTableProperties 8 * HashTableBytes def
 	2 index HashTableCapacity get # hashTable key keyHash hashTableCapacity
 	% # hashTable key keyHashIndex
 	2 index HashTableData get # hashTable key keyHashIndex hashData
-	swap get # hashTable value key chain
+	swap get # hashTable key chain
 	# 3 copy "Pre has: chain[%d],key[%s],table[%d]\n"c printf
 	dup
 	{
-		2 popN
+		3 popN
 		0
 	}
 	{
