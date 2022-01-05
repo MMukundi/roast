@@ -220,14 +220,28 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`
 				return;
 			case 'array':
-				const sizeToken = compiler.lookBehind(1)
-				if (sizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
+				const arraySizeToken = compiler.lookBehind(1)
+				if (arraySizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
 					// TODO: Here, we can create const size arrays, but only if in the outer scope
 					// TODO: Do this in the parse value section
 					compiler.assemblySource += `\ttoastStackCreateArray\n`
 					return
 				} else {
 					compiler.assemblySource += `\ttoastStackCreateArray\n`
+					return
+				}
+				errorLogger.flushLog("Array size not provided")
+				return;
+
+			case 'buffer':
+				const bufferSizeToken = compiler.lookBehind(1)
+				if (bufferSizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
+					// TODO: Here, we can create const size buffers, but only if in the outer scope
+					// TODO: Do this in the parse value section
+					compiler.assemblySource += `\ttoastStackCreateBuffer\n`
+					return
+				} else {
+					compiler.assemblySource += `\ttoastStackCreateBuffer\n`
 					return
 				}
 				errorLogger.flushLog("Array size not provided")

@@ -2,18 +2,26 @@
 
 2 createLinkedList call
 
+dup "Linked list[%d]\n"c printf
+ 
 1 0 2 index linkedListAppend call
 3 2 2 index linkedListAppend call
 5 4 2 index linkedListAppend call
 { #pairPtr
-	dup 0 get "(%d,"c printf
-	1 get " %d)\n"c printf
+	dup {
+		pop "null\n" print
+	}
+	{
+		dup 0 get "(%d,"c printf
+		1 get " %d)\n"c printf
+	} ifelse
 } printPair def
 
 "Forward\n" print
 dup printPair linkedListForEach call
 
 -1 -2 2 index linkedListPrepend call
+-3 -4 2 index linkedListPrepend call
 
 "Forward(after prepending)\n" print
 dup printPair linkedListForEach call
@@ -27,12 +35,8 @@ dup {
 # dup printNum
 
 "Found first:" print
-dup
-{
-	"null" print
-}
-printPair
-ifelse
+printPair call
+
 
 # "\n" print
 dup {
@@ -40,20 +44,41 @@ dup {
 } linkedListFindLast call
 # dup printNum
 "Found last: " print
-dup
-{
-	"null" print
-}
-printPair ifelse
+printPair call
 # "\n" print
 dup {
 	read 3 = 
 } linkedListFindLast call
 # dup printNum
 "3 search: " print
-dup
-{
-	"null" print
-}
-printPair ifelse
+printPair call
+
+# "\n" print
+dup {
+	read 0 = 
+} linkedListFindFirstNode call
+dup linkedListNodeData call
+# dup printNum
+"0 search: " print
+printPair call
+# 2 copy "node: %d, ll: %d\n"c printf
+1 index swap linkedListRemoveNode call
+"Without zero: " print
+dup printPair linkedListForEach call
+dup printPair linkedListReverseForEach call
+
+
+# "\n" print
+dup {
+	read 2 = 
+} linkedListFindFirstNode call
+dup linkedListNodeData call
+# dup printNum
+"2 search: " print
+printPair call
+# 2 copy "node: %d, ll: %d\n"c printf
+1 index swap linkedListRemoveNode call
+"Without two: " print
+dup printPair linkedListForEach call
+dup printPair linkedListReverseForEach call
 # node bootstrap/js/toast.js examples/linkedList.toast -od bin -p

@@ -556,14 +556,26 @@ cmove r9, r10
 ; toastDebugRegisters
 %macro toastCreateArray 1
 	toastStackAddressPush ArrayStackPointer, 0, %1
-	mov r9, AddressSize[ArrayStackPointer]
-	push r9
+	mov r10, AddressSize[ArrayStackPointer]
+	push r10
 	toastStackAddressPush ArrayStackPointer, %1
 %endmacro
 %macro toastStackCreateArray 0
 	pop r9
 	toastCreateArray r9
 %endmacro
+
+%macro toastCreateBuffer 1
+	toastStackAddressPush ArrayStackPointer, 0, %1
+	mov r10, AddressSize[ArrayStackPointer]
+	push r10
+	toastStackAddressPush ArrayStackPointer, %1
+%endmacro
+%macro toastStackCreateBuffer 0
+	pop r9
+	toastCreateBuffer r9
+%endmacro
+
 
 %macro toastStackArrayLength 0
 	pop r8

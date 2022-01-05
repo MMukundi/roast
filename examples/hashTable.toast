@@ -1,11 +1,31 @@
 %<hashTable>
 
-{ strEq } hashString 13 createHashTable call
+{ strEq } hashString 23 createHashTable call
+
 dup "carmel"c hashTableGet call "'carmel' Node %d\n"c printf
 dup hashTableSize call "Size %d\n"c printf
+
 dup "carmel"c 1 hashTableInsert call
 dup "carmel"c hashTableGet call dup read swap "'carmel' Node %d, val %d\n"c printf
 dup hashTableSize call "Size %d\n"c printf
+
 dup "carmel"c 2 hashTableInsert call
 dup "carmel"c hashTableGet call dup read swap "'carmel' Node %d, val %d\n"c printf
 dup hashTableSize call "Size %d\n"c printf
+
+dup "carmels"c 3 hashTableInsert call
+dup "carmels"c hashTableGet call dup read swap "'carmels' Node %d, val %d\n"c printf
+dup hashTableSize call "Size %d\n"c printf
+
+dup "carmels"c hashTableHas call "Has 'carmels': %d\n"c printf
+dup "carmel"c hashTableHas call "Has 'carmel': %d\n"c printf
+dup "carma"c hashTableHas call "Has 'carma': %d\n"c printf
+
+dup "carmels"c hashTableDelete call
+"Had?: %d\n"c printf
+dup "carmels"c hashTableGet call "'carmels' Node %d\n"c printf
+dup hashTableSize call "Size %d\n"c printf
+
+dup "carmels"c hashTableHas call "Has 'carmels': %d\n"c printf
+dup "carmel"c hashTableHas call "Has 'carmel': %d\n"c printf
+dup "carma"c hashTableHas call "Has 'carma': %d\n"c printf

@@ -1,3 +1,4 @@
+%once
 0 LinkedListSize def
 1 LinkedListDataSize def
 2 LinkedListHead def
@@ -12,7 +13,7 @@ LinkedListProperties 8 * LinkedListBytes def
 LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def 
 
 { # dataSize
-	LinkedListBytes array # dataSize linkedList
+	LinkedListBytes buffer # dataSize linkedList
 	swap 1 index LinkedListDataSize set # linkedList
 	0 1 index LinkedListSize set
 	0 1 index LinkedListHead set
@@ -22,7 +23,7 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 { # [...data...] prev next linkedList
 	# 4 copy "a)LL: %d, next: %d, prev: %d, data: %d\n"c printf
 	LinkedListDataSize get dup 8 * # [...data...] prev next dataSize dataBytes
-	LinkedListNodeBytes + array # [...data...] prev next dataSize linkedListNode
+	LinkedListNodeBytes + buffer # [...data...] prev next dataSize linkedListNode
 	# 5 copy "b)LLN: %d, size: %d,next: %d, prev: %d, data: %d\n"c printf
 	3 index 1 index LinkedListNodePrev set
 	2 index 1 index LinkedListNodeNext set
@@ -66,6 +67,16 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 	} ifelse
 } createLinkedListNodeLoop def
 
+{ 
+	# dup printNum
+	dup LinkedListSize get 1 + swap LinkedListSize set
+	# pop
+} linkedListIncrementSize def
+{
+	dup LinkedListSize get 1 - swap LinkedListSize set
+	# pop
+} linkedListDecrementSize def
+
 { # [...data...] linkedList
 	# 2 copy "a)LL: %d, data: %d\n"c printf
 	dup LinkedListDataSize get # [...data...] linkedList dataSize
@@ -80,6 +91,7 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 	3 -1 roll # linkedList [...data...] tailNode 0 linkedList
 	# 5 copy "f)LL: %d, null: %d, tail: %d, data: %d, ll2: %d\n"c printf
 	createLinkedListNode call # linkedList newNode
+	1 index linkedListIncrementSize call
 	dup 2 index LinkedListTail set # linkedList newNode
 	1 index LinkedListHead get # linkedList newNode head
 	{
@@ -93,7 +105,6 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 	} ifelse
 } linkedListAppend def
 
-
 { # [...data...] linkedList
 	dup LinkedListDataSize get # [...data...] linkedList dataSize
 	swap # [...data...] dataSize linkedList
@@ -103,6 +114,7 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 	3 -1 roll # linkedList [...data...] 0 head linkedList
 	# 5 copy "f)LL: %d, null: %d, tail: %d, data: %d, ll2: %d\n"c printf
 	createLinkedListNode call # linkedList newNode	
+	1 index linkedListIncrementSize call
 	dup 2 index LinkedListHead set # linkedList newNode
 	1 index LinkedListTail get # linkedList newNode head
 	{
@@ -115,6 +127,42 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 		# LinkedListTail get "Tail %d!\n"c printf
 	} ifelse
 } linkedListPrepend def
+
+{ # linkedList node
+	2 copy swap LinkedListHead get =
+	{
+		2 copy LinkedListNodeNext get swap LinkedListHead set
+	} if
+	# 2 copy "a) node: %d, ll: %d\n"c printf
+	2 copy swap LinkedListTail get =
+	{
+		2 copy LinkedListNodePrev get swap LinkedListTail set
+	} if
+	# 2 copy "b) node: %d, ll: %d\n"c printf
+
+	dup LinkedListNodePrev get
+	{ # linkedList node
+		# 2 copy "b1) node: %d, ll: %d\n"c printf
+		dup LinkedListNodePrev get
+		# 3 copy "b2) prev: %d, node: %d, ll: %d\n"c printf
+		1 index LinkedListNodeNext get
+		swap LinkedListNodeNext set
+	} if # if prev not null
+	# 2 copy "c) node: %d, ll: %d\n"c printf
+
+	dup LinkedListNodeNext get
+	{ # linkedList node
+		# 2 copy "c1) node: %d, ll: %d\n"c printf
+		dup LinkedListNodeNext get
+		# 3 copy "c2) next: %d, node: %d, ll: %d\n"c printf
+		1 index LinkedListNodePrev get
+		swap LinkedListNodePrev set
+	} if # if next not null
+	# 2 copy "d) node: %d, ll: %d\n"c printf
+	1 index linkedListDecrementSize call
+	2 popN
+} linkedListRemoveNode def
+
 
 { # linkedList func
 	swap LinkedListHead get linkedListForEachLoop call
@@ -154,6 +202,31 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 
 3 linkedListFindSkip def
 
+
+{ # linkedList pred
+	swap LinkedListHead get linkedListFindFirstNodeLoop call
+} linkedListFindFirstNode def
+{ # pred linkedListNode
+	dup
+	{ # pred linkedListNode
+		swap pop
+	}
+	{ # pred linkedListNode
+		2 copy # pred linkedListNode pred linkedListNode
+		LinkedListNodeData getPtr # pred linkedListNode pred linkedListData
+		swap 1 index swap  # pred linkedListNode linkedListData linkedListData pred
+		call # pred linkedListNode linkedListData shouldReturn
+		{
+			pop
+			LinkedListNodeNext get # pred nextNode
+			linkedListFindFirstNodeLoop call
+		}
+		{
+			pop swap pop # data
+		} ifelse
+	} ifelse
+} linkedListFindFirstNodeLoop def
+
 { # linkedList pred
 	swap LinkedListHead get linkedListFindFirstLoop call
 } linkedListFindFirst def
@@ -179,6 +252,30 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 } linkedListFindFirstLoop def
 
 { # linkedList pred
+	swap LinkedListTail get linkedListFindLastNodeLoop call
+} linkedListFindLastNode def
+{ # pred linkedListNode
+	dup
+	{ # pred linkedListNode
+		swap pop
+	}
+	{ # pred linkedListNode
+		2 copy # pred linkedListNode pred linkedListNode
+		LinkedListNodeData getPtr # pred linkedListNode pred linkedListData
+		swap 1 index swap  # pred linkedListNode linkedListData linkedListData pred
+		call # pred linkedListNode linkedListData shouldReturn
+		{
+			pop
+			LinkedListNodePrev get # pred nextNode
+			linkedListFindLastNodeLoop call
+		}
+		{
+			pop swap pop # data
+		} ifelse
+	} ifelse
+} linkedListFindLastNodeLoop def
+
+{ # linkedList pred
 	swap LinkedListTail get linkedListFindLastLoop call
 } linkedListFindLast def
 { # pred linkedListNode
@@ -202,4 +299,5 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 	} ifelse
 } linkedListFindLastLoop def
 
-{ 1 getPtr } linkedListNodeData def
+
+{ LinkedListNodeData getPtr } linkedListNodeData def

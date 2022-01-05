@@ -1,3 +1,4 @@
+%once
 { # string hash
 	# 2 copy "hash %d, str \"%s\"\n"c printf
 	1 index readByte dup # string hash char char
