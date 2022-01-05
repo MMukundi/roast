@@ -445,7 +445,7 @@ export class LexerSource {
 				}
 				throw ("Invalid preprocessor command")
 			}
-			includeFilename = toToastPath(includeFilename)
+			includeFilename = includeFilename ? toToastPath(includeFilename) : null
 			if (includeFilename && !this.filesNotToInclude.has(includeFilename)) {
 				// if (includeFilename) {
 				this.advanceOne()
