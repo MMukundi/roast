@@ -1,0 +1,15 @@
+{ # string hash
+	# 2 copy "hash %d, str \"%s\"\n"c printf
+	1 index readByte dup # string hash char char
+	{ # string hash char
+		swap 31 * + # string newHash
+		swap 1+ swap
+		hashStringLoop call
+	} if
+} hashStringLoop def
+
+{ # string 
+	7 hashStringLoop call
+	3 -1 roll
+	2 popN
+} hashString def

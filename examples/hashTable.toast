@@ -1,0 +1,11 @@
+%<hashTable>
+
+{ strEq } hashString 13 createHashTable call
+dup "carmel"c hashTableGet call "'carmel' Node %d\n"c printf
+dup hashTableSize call "Size %d\n"c printf
+dup "carmel"c 1 hashTableInsert call
+dup "carmel"c hashTableGet call dup read swap "'carmel' Node %d, val %d\n"c printf
+dup hashTableSize call "Size %d\n"c printf
+dup "carmel"c 2 hashTableInsert call
+dup "carmel"c hashTableGet call dup read swap "'carmel' Node %d, val %d\n"c printf
+dup hashTableSize call "Size %d\n"c printf
