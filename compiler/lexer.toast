@@ -2,8 +2,17 @@
 %"./token.toast"
 %"./utils.toast"
 %<logic>
+%<linkedList>
+# %<hashTable>
+%<stack>
+
 
 5 lexerBufferSize def
+
+0 ScopePrevTokenStack def
+1 ScopeNextTokenQueue def
+2 ScopeProperties def
+ScopeProperties 8 * ScopeBytes def
 
 0 HasNextLine def
 # 1 Line def
@@ -13,13 +22,15 @@
 3 BytesRead def
 4 Pointer def
 5 OutputFd def
-5 PreviousTokens def
-6 NextTokens def
-7 Buffer def
-8 InputPath def
-9 IncludeStack def
-10 Location def
-11 NumberOfLexerProperties def
+6 Buffer def
+7 InputPath def
+8 ScopeStack def
+9 Location def
+10 NumberOfLexerProperties def
+NumberOfLexerProperties 8 * LexerBytes def
+
+NumberOfLexerProperties createStack IncludeStack def
+
 
 10 MaxBufferedTokens def
 
@@ -60,7 +71,7 @@ pop
 # 0 ValueTokenType def
 
 { # inputFilePath
-	NumberOfLexerProperties buffer # inputFilePath lexer
+	LexerBytes buffer # inputFilePath lexer
 	# 8 8 * buffer # inputFilePath lexer
 
 	0 1 index HasNextLine set # inputFilePath lexer
@@ -87,7 +98,7 @@ pop
 	1 index OutputFd set # inputFilePath lexer
 
 	# TODO: REPLACE STDLIB PATH WITH ACCURATE PATH
-"%include \"./std/std.asm\"
+"%include \"std.asm\"
 	global _main
 	default rel
 
@@ -97,14 +108,14 @@ _main:
 	2 index OutputFd get # inputFilePath lexer preamble outFd
 	fprint # inputFilePath lexer
 
-	MaxBufferedTokens TokenSize * buffer 1 index PreviousTokens set
-	MaxBufferedTokens TokenSize * buffer 1 index NextTokens set
-
+	# MaxBufferedTokens TokenSize * buffer 1 index PreviousTokens set
+	# MaxBufferedTokens TokenSize * buffer 1 index NextTokens set
 	swap 1 index InputPath set
 	dup lexerFillBuffer call
 	# TODO: This gets rid of the number of bytes read. Later, use this to check if the file ended
 	# lexer BytesRead get
 	# "Inited lexer with %d bytes\n" pop printf
+
 } createLexer def
 
 
@@ -204,7 +215,7 @@ _main:
 		swap # currChar lexer
 		lexerFillBuffer call # currChar
 	} ifelse # currChar
-	dup "C'%c'"c printf
+	# dup "C'%c'"c printf
 } lexerAdvanceOne def # lexer
 
 { # lexer
@@ -214,33 +225,36 @@ _main:
 
 	# and the ponter is at the end of the buffer
 	# (
-	1 index BytesRead get 1 - #1 -
-	2 index Pointer get 
-	3 index Buffer get 
+	1 index BytesRead get 0 <=
+	2 index BytesRead get 1 - #1 -
+	3 index Pointer get 
+	4 index Buffer get 
 	# 3 copy "%d %d %d"c printf
 	# 3 copy "(buff %d, ptr %d, bytes %d)"c printf
 	- =
+	|
 	# dup "EndOfBuff? %d "c printf
 
 	# )
-	* swap pop
+	& swap pop
 	# dup "Done? %d\n"c printf
 } lexerIsDone def
 
+5 advanceWhileSkip def
 { # strStart lexer predicate strPtr
 	{
 		2 index lexerCurrentChar call
 		2 index call
 	}
 	{# strStart lexer predicate strPtr otherBlock
-		4 index lexerIsDone call ! # strStart lexer predicate strPtr otherBlock isDone
+		3 index lexerIsDone call ! # strStart lexer predicate strPtr otherBlock isDone
 		5 index 3 index 
 		> |
 	}
 	shortCircuitAnd call
 	{
-		0 swap writeByte
-		2 popN
+		0 1 index writeByte
+		swap pop swap pop
 	}
 	{
 		2 index lexerIsDone call
@@ -248,18 +262,27 @@ _main:
 		
 		2 index writeByte
 		swap 1 + swap !
-		{ 3 popN }
+		{ swap pop swap pop }
 		lexerAdvanceWhileLoop ifelse
 	} ifelse
 } lexerAdvanceWhileLoop def
 { # lexer predicate
-	50 buffer dup printNum
+	50 buffer
 	3 1 roll
 	2 index
 	lexerAdvanceWhileLoop call
+	pop
 } lexerAdvanceWhile def
+{ # lexer predicate buffer
+	3 1 roll
+	2 index
+	lexerAdvanceWhileLoop call
+	swap pop
+} lexerAdvanceWhileBuffer def
+
 { # lexer predicate
 	{
+		# "Calling" print
 		1 index lexerCurrentChar call
 		1 index call
 	}
@@ -267,6 +290,7 @@ _main:
 		2 index lexerIsDone call !
 	}
 	shortCircuitAnd call
+
 	{
 		2 popN
 	}
@@ -311,48 +335,126 @@ _main:
 	} ifelse
 } lexerSkipComments def # lexer
 
-{
+{ # lexer
+	# dup "Lexer[%d]"c printf
+	# dup lexerCurrentChar call "Current char: %d\n"c printf
 	dup lexerSkipWhitespace call
 	dup lexerSkipComments call
 	dup lexerIsDone call !
 	{
-		0
+		pop 0
 	}
 	{
-		dup lexerCurrentChar call currentChar def # lexer
-		dup Location get copyLocation call tokenLocation def # lexer
-	} if
+		0 index Location get 
+		copyLocation call # lexer location
+		1 index lexerCurrentChar call # lexer location char
+		# dup "Current char: %c\n"c printf
+		
+		# dup dup '-' = swap '%' = |
+		dup '-' = 
+		{
+			dup # lexer location char char
+		}
+		{
+			pop 2 index lexerAdvanceOne call # lexer location prevChar
+			2 index lexerCurrentChar call # lexer location prevChar currChar
+		} ifelse # lexer location prevChar currChar
+		
+		# 2 copy "Curr[%c], Prev[%c]\n"c printf
+		dup isDigit call
+		{
+			# lexer location prevChar currChar
+			dup isOperation call
+			{
+				1 index '-' = 1 index shouldEndName call &
+				{
+					20 buffer dup # lexer location prevChar currChar buffer buffer
+
+					3 index '-' =
+					{
+						'-' 1 index writeByte 
+						1 getBytePtr
+					} if
+					# lexer location prevChar currChar buffer currBuffPtr
+					
+					# Write current char
+					# 2 index 1 index writeByte
+					# 1 getBytePtr
+
+					5 index { shouldEndName call ! } 2 index lexerAdvanceWhileBuffer call
+					
+					swap pop # lexer location prevChar currChar buffer bufferEnd
+					
+					5 index lexerIsDone call
+					{
+						5 index lexerCurrentChar call
+						1 index writeByte
+						1 getBytePtr
+						0
+						1 index writeByte
+						1 getBytePtr
+					} if
+					
+					pop
+					# 5 copy "%d %d %d %d %d\n"c printf
+
+					NameToken swap # lexer location prevChar currChar buffer [NameToken]
+					4 index swap
+					makeToken call
+				}
+				{
+					OperatorToken 3 index '-'
+					makeToken call
+				} ifelse
+			}
+			{
+				OperatorToken 3 index
+				5 index lexerAdvanceOne call
+				makeToken call
+			}
+			ifelse
+		}
+		{ 
+			# lexer location prevChar currChar
+			3 index isDigit lexerAdvanceWhile call # lexer location prevChar currChar str
+			stringToInt # lexer location prevChar currChar parsedNum
+			1 index '-' = # lexer location prevChar currChar parsedNum isNeg
+			{ -1 * } if # lexer location prevChar currChar parsedNum
+			IntToken swap # lexer location prevChar currChar [IntToken] parsedNum
+			4 index swap # lexer location prevChar currChar [IntToken] location parsedNum
+			makeToken call
+		} ifelse
+		5 1 roll
+		4 popN
+	} ifelse
 } lexerGetToken def # lexer
 
+{ # tokens lexer
+	dup lexerIsDone call !
+	{
+		pop
+	}
+	{
+		dup lexerGetToken call
+		dup {
+			2 popN
+		}
+		{
+			dup debugToken call
+			2 index linkedListAppend call
+			lexerGetTokensLoop call
+		} ifelse
+	} ifelse
+} lexerGetTokensLoop def
 
+{ # lexer
+	1 createLinkedList call
+	swap
+	lexerGetTokensLoop call
+} lexerGetTokens def
 
-{ 0 index Pointer get 1 index BytesRead get print pop } lexerPrintBuffer def
+{ OutputFd get close } lexerCloseOutput def # lexer
 
 {  2 index OutputFd get fprint pop } lexerOutPrint def # lexer string size
 {  swap OutputFd get fprintf } lexerOutPrintf def # [...data...] lexer formatString
-
-
-# "./compiler/Calculate.toast"c createLexer call 
-# dup debugLexer call
-# dup lexerPrintBuffer call
-# dup lexerFillBuffer call 
-# dup lexerPrintBuffer call
-
-{ "%c"c printf } debugChar def
-"./compiler/Calculate.toast"c createLexer call 
-dup debugLexer call
-"Whiling!" print
-dup Location get debugLocation call
-
-# dup { '+' != } lexerAdvanceWhile call
-# "'%s'\n"c printf
-dup { '+' != } lexerAdvanceWhileNoString call
-
-dup Location get debugLocation call
-dup { '2' != } lexerAdvanceWhile call
-"'%s'\n"c printf
-dup Location get debugLocation call
-dup BytesRead get printNum
-lexerPrintBuffer call
-
 # node bootstrap/js/toast.js compiler/lexer.toast -od bin -p
