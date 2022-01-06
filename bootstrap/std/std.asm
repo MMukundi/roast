@@ -651,6 +651,7 @@ cmove r9, r10
 	Syscall.Write
 %endmacro
 
+; File opens: https://github.com/apple/darwin-xnu/blob/main/bsd/sys/fcntl.h
 %macro toastReadOpenFile 1
 	mov rdi, %1
 	mov rsi, 0644o
@@ -679,6 +680,11 @@ cmove r9, r10
 	; int 0x80
 	push rax
 %endmacro
+%macro toastStackCloseFile 0
+	pop rdi
+	Syscall.Close
+%endmacro
+
 
 %macro toastStackReadOpenFile 0
 	pop r8
@@ -761,8 +767,8 @@ toastCreateStack 1024, ReturnStack, ReturnStackPointer
 toastCreateStack 1024, VariableStack, VariableStackPointer
 toastCreateStack 1024, MarkStack, MarkStackPointer
 
-; toastCreateStack 8192, ArrayStack, ArrayStackPointer
-toastCreateStack 1024, ArrayStack, ArrayStackPointer ; Small heap
+toastCreateStack 8192, ArrayStack, ArrayStackPointer
+; toastCreateStack 1024, ArrayStack, ArrayStackPointer ; Small heap
 ; toastCreateStack 16384, StringHeap, StringHeapPointer
 toastCreateStack 1024, StringHeap, StringHeapPointer ; Small heap
 

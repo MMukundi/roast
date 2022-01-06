@@ -3,6 +3,7 @@
 %define Syscode.Read   0x2000003
 %define Syscode.Write  0x2000004
 %define Syscode.Open   0x2000005
+%define Syscode.Close   0x2000006
 %define Syscode.Wait4  0x2000007
 %define Syscode.Exec   0x200003b
 %define Syscode.Vfork  0x2000042
@@ -24,7 +25,9 @@
 %macro Syscall.Open 0
 	__Toast__Make__Syscall__ Syscode.Open
 %endmacro
-
+%macro Syscall.Close 0
+	__Toast__Make__Syscall__ Syscode.Close
+%endmacro
 %macro Syscall.Exec 0
 	__Toast__Make__Syscall__ Syscode.Exec
 %endmacro
