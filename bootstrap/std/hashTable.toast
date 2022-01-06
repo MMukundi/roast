@@ -26,10 +26,12 @@ HashTableProperties 8 * HashTableBytes def
 	# dup "HashTable[%d]\n"c printf
 } createHashTable def
 
-{ # hashTable value key
+{ # hashTable key value
+	# 2 index "HashTable[%d]\n"c printf
 	swap
 	dup # hashTable value key key
 	3 index HashTableHashFunction get # hashTable value key key hashFunction
+
 	call # hashTable value key keyHash
 	# dup "Hash[%d]\n"c printf
 	3 index HashTableCapacity get # hashTable value key keyHash hashTableCapacity
@@ -140,7 +142,7 @@ HashTableProperties 8 * HashTableBytes def
 		0
 	}
 	{
-		3 index HashTableEqualsFunction get
+		2 index HashTableEqualsFunction get
 		1 index { # hashTable key chain eqFunc [linkedListFindSkip values] nodeData
 			read # hashTable key chain eqFunc [linkedListFindSkip values] otherKey
 			linkedListFindSkip 1 + index  # hashTable key chain eqFunc [linkedListFindSkip values] otherKey eqFunc
@@ -164,14 +166,14 @@ HashTableProperties 8 * HashTableBytes def
 	% # hashTable key keyHashIndex
 	2 index HashTableData get # hashTable key keyHashIndex hashData
 	swap get # hashTable key chain
-	# 3 copy "Pre has: chain[%d],key[%s],table[%d]\n"c printf
+	# 3 copy "Pre has: chain[%d],key[%c],table[%d]\n"c printf
 	dup
 	{
 		3 popN
 		0
 	}
 	{
-		3 index HashTableEqualsFunction get
+		2 index HashTableEqualsFunction get
 		1 index { # hashTable value key chain eqFunc [linkedListFindSkip values] nodeData
 			read # hashTable value key chain eqFunc [linkedListFindSkip values] otherKey
 			linkedListFindSkip 1 + index  # hashTable value key chain eqFunc [linkedListFindSkip values] otherKey eqFunc
@@ -179,6 +181,7 @@ HashTableProperties 8 * HashTableBytes def
 			call
 		} linkedListFindFirst call
 		0 !=
+
 		# hashTable value key chain eqFunc bool
 		5 1 roll
 		4 popN

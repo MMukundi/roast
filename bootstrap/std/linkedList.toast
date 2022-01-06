@@ -68,9 +68,8 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 } createLinkedListNodeLoop def
 
 { 
-	# dup printNum
-	dup LinkedListSize get 1 + swap LinkedListSize set
-	# pop
+	dup LinkedListSize get
+	1 + swap LinkedListSize set
 } linkedListIncrementSize def
 {
 	dup LinkedListSize get 1 - swap LinkedListSize set
@@ -104,6 +103,7 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 		# LinkedListTail get "Tail %d!\n"c printf
 	} ifelse
 } linkedListAppend def
+{ LinkedListSize get } linkedListSize def
 
 { # [...data...] linkedList
 	dup LinkedListDataSize get # [...data...] linkedList dataSize
@@ -201,6 +201,7 @@ LinkedListNodeProperties 1- 8 * LinkedListNodeBytes def
 } linkedListReverseForEachLoop def
 
 3 linkedListFindSkip def
+3 linkedListForEachSkip def
 
 
 { # linkedList pred
