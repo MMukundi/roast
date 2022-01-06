@@ -1,33 +1,9 @@
-[ 0 ] status def
-status 1+ readStatusByte def
+%<command>
+
 "/usr/local/bin/node"c NodeHome def
 "/usr/local/bin/nasm"c NasmHome def
 "/bin/ld"c LinkerHome def
 [ NodeHome "bootstrap/js/toast.js"c 0 "-od"c "bin"c 0 ] testArgs def
-
-{ # [...args] command
-	ForkSyscode
-	syscall0 # isParent pid
-	swap
-	{
-		0 0 
-		status
-		4 -1 roll
-		6 -2 roll 2 popN
-		WaitSyscode syscall4
-		2 popN
-		readStatusByte 0 getByte
-	}
-	{
-		pop
-		0
-		2 index
-		2 index
-		ExecSyscode
-		syscall3
-		0 exit
-	} ifelse
-} command def
 
 { 2 index 0 > { 3 popN } { 2 copy swap read swap call swap 8+ swap 3 -1 roll 1 - 3 1 roll foreachCore call } ifelse } foreachCore def # numLeft arrPtr func 
 { swap dup length swap 3 -1 roll foreachCore call } foreach def # arr func 
