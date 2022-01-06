@@ -349,6 +349,8 @@ export class LexerSource {
 					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
 				}
 
+				this.skipWhitespace()
+				this.skipComments()
 				while (this.current() != end) {
 					const token = this.parseToken()
 					this.skipWhitespace()

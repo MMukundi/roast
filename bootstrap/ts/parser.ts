@@ -206,6 +206,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return
 
 			//FILE OPS, UNDER DEVELOOMENT
+			case 'close':
+				compiler.assemblySource += `\ttoastStackCloseFile\n`
+				return;
 			case 'readOpen':
 				compiler.assemblySource += `\ttoastStackReadOpenFile\n`
 				return;
