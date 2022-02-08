@@ -42,5 +42,59 @@
 	[ 3 copy rangeCore call ] 4 1 roll 3 popN
 } range def # start stop step 
 
+{ 
+	2 index 0 >
+	{ 3 popN 0 }
+	{
+		1 index dup read # numLeft arrPtr pred ptr value
+		2 index # numLeft arrPtr pred ptr value pred 
+		call # numLeft arrPtr pred ptr bool
+		{
+			pop # numLeft pred arrPtr
+			swap 1 getPtr swap # numLeft nextPtr pred
+			3 -1 roll 1 - 3 1 roll # (numLeft-1) nextPtr pred
+			findFirstCore call
+		}
+		{
+			4 1 roll 3 popN
+		} ifelse
+	} ifelse
+} findFirstCore def # numLeft arrPtr pred 
+{
+	swap dup length swap # pred len arr
+	3 -1 roll # len arr pred
+	findFirstCore call
+} findFirst def # arr pred 
+
+{ 
+	2 index 0 >
+	{ 3 popN 0 }
+	{
+		1 index dup read # numLeft arrPtr pred ptr value
+		2 index # numLeft arrPtr pred ptr value pred 
+		call # numLeft arrPtr pred ptr bool
+		{
+			pop # numLeft pred arrPtr
+			swap -1 getPtr swap # numLeft nextPtr pred
+			3 -1 roll 1 - 3 1 roll # (numLeft-1) nextPtr pred
+			findLastCore call
+		}
+		{
+			4 1 roll 3 popN
+		} ifelse
+	} ifelse
+} findLastCore def # numLeft arrPtr pred 
+{
+	swap dup length swap # pred len arr
+	3 -1 roll # len arr pred
+	swap 2 index # len pred arr len
+	1 - getPtr # len pred arrLastPtr
+	swap # len arrLastPtr pred
+	findLastCore call
+} findLast def # arr pred 
+
 { 0 get } first def #arr
 { dup length 1 - get } last def #arr
+
+{ 0 getPtr } firstPtr def #arr
+{ dup length 1 - getPtr } lastPtr def #arr
