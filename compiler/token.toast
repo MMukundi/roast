@@ -1,1 +1,143 @@
-2 TokenSize def
+%once
+%<hashTable>
+
+0 ListToken    def
+1 BlockToken   def
+2 IntToken     def
+3 NameToken    def
+4 StringToken  def
+5 CStringToken def
+6 OperatorToken def
+
+{ = } { 19 * } 13 createHashTable call operationTable def
+operationTable '+' "toastStackCompute add"c hashTableInsert call
+operationTable '-' "toastStackCompute sub"c hashTableInsert call
+operationTable '*' "toastStackRAXCompute imul"c hashTableInsert call
+operationTable '/' "toastStackRAXCompute idiv"c hashTableInsert call
+operationTable '%' "toastStackRAXCompute idiv, rdx"c hashTableInsert call
+
+{ strEq } hashString 13 createHashTable call builtInFunctions def
+builtInFunctions "print"c "toastStackPrint"c hashTableInsert call
+builtInFunctions "printNum"c "toastCallFunc print_num"c hashTableInsert call
+builtInFunctions "printf"c "toastCallFunc print_f"c hashTableInsert call
+# builtInFunctions '-' "toastStackCompute sub"c hashTableInsert call
+# builtInFunctions '*' "toastStackRAXCompute imul"c hashTableInsert call
+# builtInFunctions '/' "toastStackRAXCompute idiv"c hashTableInsert call
+# builtInFunctions '%' "toastStackRAXCompute idiv, rdx"c hashTableInsert call
+
+[
+	{ length "(List: %d values)"c printf }
+	{ length "(Block: %d instructions)"c printf }
+	{ "(Int: %d)"c printf }
+	{ "(Name: %s)"c printf }
+	{ "(String: %s)"c printf }
+	{ "(CString: %s)"c printf }
+	{ "(Operator: %c)"c printf }
+] TokenPrinters def
+
+[ # lexer token
+	{ 2 popN } # List
+	{ 2 popN } # Block
+	{
+		tokenValue call swap
+		"\tpush %d\n"c
+		lexerOutPrintf call
+	} # Int
+	{ 
+		tokenValue call
+		# dup "Name token: %d\n" printf
+		builtInFunctions swap hashTableGet call
+		read
+		swap
+		"\t%s\n"c
+		lexerOutPrintf call
+	} # Name
+	{ 2 popN } # String
+	{ 2 popN } # CString
+	{ 
+		tokenValue call
+		operationTable swap hashTableGet call
+		read
+		swap
+		"\t%s\n"c
+		lexerOutPrintf call
+	} # Operator
+] TokenWriters def
+
+
+0 LocationLine   def
+1 LocationColumn def
+2 LocationSource def
+3 LocationSize   def
+LocationSize 8 * LocationBytes   def
+
+0 TokenType     def
+1 TokenLocation def
+2 TokenValue    def
+3 TokenSize     def
+TokenSize 8 * TokenBytes def
+
+{ # source line column
+	LocationBytes buffer
+	swap # source line buffer column
+	1 index LocationColumn set swap # source buffer line
+	1 index LocationLine set swap # buffer source
+	1 index LocationSource set # buffer
+	# dup "END %d"c printf 
+} makeLocation def
+
+{ # location
+	0 index LocationColumn get 1+ swap LocationColumn set
+} locationIncrementColumn def
+{ # column location
+	LocationColumn set
+} locationSetColumn def
+{ # location
+	LocationColumn get
+} locationGetColumn def
+
+{ # location
+	0 index LocationLine get 1 + 1 index LocationLine set
+	0 swap LocationColumn set
+} locationIncrementLine def
+{ # column location
+	LocationLine set
+} locationSetLine def
+{ # location
+	LocationLine get
+} locationGetLine def
+
+{ # type location value
+	TokenBytes buffer  # type location value buffer
+	swap 1 index TokenValue set
+	swap 1 index TokenLocation set
+	swap 1 index TokenType set
+} makeToken def
+{ # token
+	# dup TokenLocation get # token location
+	# debugLocation call
+	dup TokenValue get # token value
+	swap TokenType get # value type
+	# TokenPrinters 5 get "First[%d]"c printf
+	TokenPrinters swap get
+	call
+} debugToken def
+
+{ TokenType get } tokenType def
+{ TokenValue get } tokenValue def
+{
+	dup LocationColumn get 1+ swap
+	dup LocationLine get 1+ swap
+	dup LocationSource get swap pop
+	# 3 copy "[src %d: lin %d col %d]"c printf
+	"[%s:%d:%d]"c printf
+} debugLocation def
+
+{
+	# TODO: Consider a memcopy solution here
+	dup LocationSource get swap 
+	dup LocationLine get swap 
+	dup LocationColumn get swap pop
+	makeLocation call
+	# 3 copy "[%s:%d:%d]"c printf
+} copyLocation def

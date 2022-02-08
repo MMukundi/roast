@@ -137,24 +137,43 @@ toastCurrentString: db %1, 0
 
 ;; -------- [End(Stack Macros)] --------
 ;; -------- [Begin(CodeBlock Macros)] --------
-%macro  toastBeginCodeBlock 0
+%macro  toastBeginCodeBlock 0-1
 	%push toastCodeBlock
 	;; ---- Push block begin address to stack ---- ;;
+	%if %0 = 1
+	; lea r8, [%1]
+	; push r8
+	; jmp %$ %+ %1 %+ _end:
+	jmp %1 %+ _end
+%1:
+	%else
 	lea r8, [%$BlockBegin]
 	push r8
-	;; ---- Skip blick for now ---- ;;
+	;; ---- Skip block for now ---- ;;
 	jmp %$BlockEnd
 %$BlockBegin:
+	%endif
 %endmacro
-%macro  toastEndCodeBlock 0
+%macro  toastEndCodeBlock 0-1
 	;; ---- Return to previous block ---- ;;
 	toastReturn
 ;; ---- Marker of block end ---- ;;
+%if %0 = 1
+; %$ %+ %1 %+ _end:
+%1 %+ _end:
+%else
 %$BlockEnd:
+%endif
 %pop
+
 %endmacro
 ;; -------- [End(CodeBlock Macros)] --------
 ;; -------- [Begin(Variable Macros)] --------
+%macro  toastRedefineVariable 0-1
+	pop r8 ; Variable location
+	pop r9 ; Varibale value
+	mov [r8], r9
+%endmacro
 %macro  toastDefineVariable 0-1
 	[section .bss]
 	toastCreateBuffer AddressBytes, %1
@@ -371,14 +390,38 @@ toastCreateBuffer %1, %%buffer
 %endmacro
 ;; -- toastTwoStackOperandsInstruction instructionName --
 ;; -- Performs an instruction on the top two stack operands -- 
-%macro toastTwoStackOperandsInstruction 1
+%macro toastTwoStackOperandsInstruction 1-2 rcx
 	toastPopTwoStackOperands
-	%1 rax, rcx
+	%1 rax, %2
 %endmacro
 ;; -- toastTwoStackOperandsInstruction instructionName --
 ;; -- Performs an instruction on the top two stack operands -- 
 %macro toastStackCompute 1
 	toastTwoStackOperandsInstruction %1
+	push rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackLogic 1
+	toastTwoStackOperandsInstruction %1, CL
+	push rax
+%endmacro
+
+;; -- toastPopTwoStackOperands --
+;; -- Loads the top two operands from the stack
+%macro toastPopStackOperand 0
+	pop rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackOperandInstruction 1
+	toastPopStackOperand
+	%1 rax
+%endmacro
+;; -- toastTwoStackOperandsInstruction instructionName --
+;; -- Performs an instruction on the top two stack operands -- 
+%macro toastStackComputeOne 1
+	toastStackOperandInstruction %1
 	push rax
 %endmacro
 
@@ -513,14 +556,26 @@ cmove r9, r10
 ; toastDebugRegisters
 %macro toastCreateArray 1
 	toastStackAddressPush ArrayStackPointer, 0, %1
-	mov r9, AddressSize[ArrayStackPointer]
-	push r9
+	mov r10, AddressSize[ArrayStackPointer]
+	push r10
 	toastStackAddressPush ArrayStackPointer, %1
 %endmacro
 %macro toastStackCreateArray 0
 	pop r9
 	toastCreateArray r9
 %endmacro
+
+%macro toastCreateBuffer 1
+	toastStackAddressPush ArrayStackPointer, 0, %1
+	mov r10, AddressSize[ArrayStackPointer]
+	push r10
+	toastStackAddressPush ArrayStackPointer, %1
+%endmacro
+%macro toastStackCreateBuffer 0
+	pop r9
+	toastCreateBuffer r9
+%endmacro
+
 
 %macro toastStackArrayLength 0
 	pop r8
@@ -596,6 +651,7 @@ cmove r9, r10
 	Syscall.Write
 %endmacro
 
+; File opens: https://github.com/apple/darwin-xnu/blob/main/bsd/sys/fcntl.h
 %macro toastReadOpenFile 1
 	mov rdi, %1
 	mov rsi, 0644o
@@ -624,6 +680,11 @@ cmove r9, r10
 	; int 0x80
 	push rax
 %endmacro
+%macro toastStackCloseFile 0
+	pop rdi
+	Syscall.Close
+%endmacro
+
 
 %macro toastStackReadOpenFile 0
 	pop r8
@@ -706,8 +767,8 @@ toastCreateStack 1024, ReturnStack, ReturnStackPointer
 toastCreateStack 1024, VariableStack, VariableStackPointer
 toastCreateStack 1024, MarkStack, MarkStackPointer
 
-; toastCreateStack 8192, ArrayStack, ArrayStackPointer
-toastCreateStack 1024, ArrayStack, ArrayStackPointer ; Small heap
+toastCreateStack 8192, ArrayStack, ArrayStackPointer
+; toastCreateStack 1024, ArrayStack, ArrayStackPointer ; Small heap
 ; toastCreateStack 16384, StringHeap, StringHeapPointer
 toastCreateStack 1024, StringHeap, StringHeapPointer ; Small heap
 
@@ -1169,9 +1230,19 @@ sprint_f:
 	cmp al, 's'
 	je .str
 
+	cmp al, 'c'
+	je .char
+
 	; cmp al, '%'
 	; je print_f_next
 
+	jmp .next
+.char:
+	pop r8
+	mov r9, [StringHeapPointer]
+	mov byte[r9], r8b
+	lea r9, [r9+1]
+	mov [StringHeapPointer], r9
 	jmp .next
 .num:
 	pop rax
@@ -1321,9 +1392,24 @@ print_f_find_format:
 	cmp al, 's'
 	je print_f_str
 
+	cmp al, 'c'
+	je print_f_char
+
 	; cmp al, '%'
 	; je print_f_next
 
+	jmp print_f_next	
+print_f_char:
+	pop rax
+	lea rsp, [rsp-1]
+	mov byte[rsp], al
+	mov r9, rsp
+	push rdi
+	push r8
+	toastFilePrintString rdi,r9, 1 
+	pop r8
+	pop rdi
+	lea rsp, [rsp+1]
 	jmp print_f_next
 print_f_num:
 	pop rax

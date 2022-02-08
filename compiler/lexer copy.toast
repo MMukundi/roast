@@ -1,18 +1,12 @@
+# WHILE DEVELOPING THE LEXER, I DEVISED
+# SOME GOOD GENERAL PURPOSE FILE READING SYSTEMS.
+# HERES THAT
+
 %once
 %"./token.toast"
-%"./utils.toast"
 %<logic>
-%<linkedList>
-# %<hashTable>
-%<stack>
-
 
 5 lexerBufferSize def
-
-0 ScopePrevTokenStack def
-1 ScopeNextTokenQueue def
-2 ScopeProperties def
-ScopeProperties 8 * ScopeBytes def
 
 0 HasNextLine def
 # 1 Line def
@@ -22,15 +16,13 @@ ScopeProperties 8 * ScopeBytes def
 3 BytesRead def
 4 Pointer def
 5 OutputFd def
-6 Buffer def
-7 InputPath def
-8 ScopeStack def
-9 Location def
-10 NumberOfLexerProperties def
-NumberOfLexerProperties 8 * LexerBytes def
-
-NumberOfLexerProperties createStack IncludeStack def
-
+5 PreviousTokens def
+6 NextTokens def
+7 Buffer def
+8 InputPath def
+9 IncludeStack def
+10 Location def
+11 NumberOfLexerProperties def
 
 10 MaxBufferedTokens def
 
@@ -71,7 +63,7 @@ pop
 # 0 ValueTokenType def
 
 { # inputFilePath
-	LexerBytes buffer # inputFilePath lexer
+	NumberOfLexerProperties buffer # inputFilePath lexer
 	# 8 8 * buffer # inputFilePath lexer
 
 	0 1 index HasNextLine set # inputFilePath lexer
@@ -98,7 +90,7 @@ pop
 	1 index OutputFd set # inputFilePath lexer
 
 	# TODO: REPLACE STDLIB PATH WITH ACCURATE PATH
-"%include \"std.asm\"
+"%include \"./std/std.asm\"
 	global _main
 	default rel
 
@@ -108,14 +100,14 @@ _main:
 	2 index OutputFd get # inputFilePath lexer preamble outFd
 	fprint # inputFilePath lexer
 
-	# MaxBufferedTokens TokenSize * buffer 1 index PreviousTokens set
-	# MaxBufferedTokens TokenSize * buffer 1 index NextTokens set
+	MaxBufferedTokens TokenSize * buffer 1 index PreviousTokens set
+	MaxBufferedTokens TokenSize * buffer 1 index NextTokens set
+
 	swap 1 index InputPath set
 	dup lexerFillBuffer call
 	# TODO: This gets rid of the number of bytes read. Later, use this to check if the file ended
 	# lexer BytesRead get
 	# "Inited lexer with %d bytes\n" pop printf
-
 } createLexer def
 
 
@@ -215,90 +207,52 @@ _main:
 		swap # currChar lexer
 		lexerFillBuffer call # currChar
 	} ifelse # currChar
-	# dup "C'%c'"c printf
 } lexerAdvanceOne def # lexer
 
 { # lexer
 	# if there are no more lines
 	0 index HasNextLine get !
-	# dup "NoMoreLines? %d "c printf
+	dup "NoMoreLines? %d "c printf
 
 	# and the ponter is at the end of the buffer
 	# (
-	1 index BytesRead get 0 <=
-	2 index BytesRead get 1 - #1 -
-	3 index Pointer get 
-	4 index Buffer get 
-	# 3 copy "%d %d %d"c printf
-	# 3 copy "(buff %d, ptr %d, bytes %d)"c printf
+	1 index BytesRead get 1 -
+	2 index Pointer get 
+	3 index Buffer get 
+	3 copy "(buff %d, ptr %d, bytes %d)"c printf
 	- =
-	|
-	# dup "EndOfBuff? %d "c printf
+	dup "EndOfBuff? %d "c printf
 
 	# )
-	& swap pop
-	# dup "Done? %d\n"c printf
+	* swap pop
+	dup "Done? %d\n"c printf
 } lexerIsDone def
 
-5 advanceWhileSkip def
-{ # strStart lexer predicate strPtr
+{ # lexer predicate strPtr
 	{
 		2 index lexerCurrentChar call
 		2 index call
 	}
-	{# strStart lexer predicate strPtr otherBlock
-		3 index lexerIsDone call ! # strStart lexer predicate strPtr otherBlock isDone
-		5 index 3 index 
-		> |
+	{
+		3 index lexerIsDone call !
 	}
 	shortCircuitAnd call
 	{
-		0 1 index writeByte
-		swap pop swap pop
-	}
-	{
-		2 index lexerIsDone call
-		3 index lexerAdvanceOne call
-		
-		2 index writeByte
-		swap 1 + swap !
-		{ swap pop swap pop }
-		lexerAdvanceWhileLoop ifelse
-	} ifelse
-} lexerAdvanceWhileLoop def
-{ # lexer predicate
-	50 buffer
-	3 1 roll
-	2 index
-	lexerAdvanceWhileLoop call
-	pop
-} lexerAdvanceWhile def
-{ # lexer predicate buffer
-	3 1 roll
-	2 index
-	lexerAdvanceWhileLoop call
-	swap pop
-} lexerAdvanceWhileBuffer def
-
-{ # lexer predicate
-	{
-		# "Calling" print
-		1 index lexerCurrentChar call
-		1 index call
-	}
-	{
-		2 index lexerIsDone call !
-	}
-	shortCircuitAnd call
-
-	{
+		0 swap writeByte
 		2 popN
 	}
 	{
-		1 index lexerAdvanceOne call pop
-		lexerAdvanceWhileNoString call
+		2 index lexerAdvanceOne call
+		1 index writeByte
+		1 +	
+		lexerAdvanceWhileLoop call
 	} ifelse
-} lexerAdvanceWhileNoString def
+} lexerAdvanceWhileLoop def
+{ # lexer predicate
+	50 buffer 3 1 roll
+	2 index
+	lexerAdvanceWhileLoop call
+} lexerAdvanceWhile def
 
 { # lexer count
 	1 index Pointer get + # lexer lexerPtr
@@ -320,141 +274,28 @@ _main:
 	} ifelse	
 } lexerAdvance def
 
-{ isWhitespace lexerAdvanceWhileNoString call } lexerSkipWhitespace def # lexer
-
-{ # lexer
-	dup lexerCurrentChar call # lexer char
-	'#' =
-	{
-		pop
-	}
-	{
-		dup { '\n' != } lexerAdvanceWhileNoString call
-		dup lexerSkipWhitespace call
-		lexerSkipComments call
-	} ifelse
-} lexerSkipComments def # lexer
-
-{ # lexer
-	# dup "Lexer[%d]"c printf
-	# dup lexerCurrentChar call "Current char: %d\n"c printf
-	dup lexerSkipWhitespace call
-	dup lexerSkipComments call
-	dup lexerIsDone call !
-	{
-		pop 0
-	}
-	{
-		0 index Location get 
-		copyLocation call # lexer location
-		1 index lexerCurrentChar call # lexer location char
-		# dup "Current char: %c\n"c printf
-		
-		# dup dup '-' = swap '%' = |
-		dup '-' = 
-		{
-			dup # lexer location char char
-		}
-		{
-			pop 2 index lexerAdvanceOne call # lexer location prevChar
-			2 index lexerCurrentChar call # lexer location prevChar currChar
-		} ifelse # lexer location prevChar currChar
-		
-		# 2 copy "Curr[%c], Prev[%c]\n"c printf
-		dup isDigit call
-		{
-			# lexer location prevChar currChar
-			dup isOperation call
-			{
-				1 index '-' = 1 index shouldEndName call &
-				{
-					20 buffer dup # lexer location prevChar currChar buffer buffer
-
-					3 index '-' =
-					{
-						'-' 1 index writeByte 
-						1 getBytePtr
-					} if
-					# lexer location prevChar currChar buffer currBuffPtr
-					
-					# Write current char
-					# 2 index 1 index writeByte
-					# 1 getBytePtr
-
-					5 index { shouldEndName call ! } 2 index lexerAdvanceWhileBuffer call
-					
-					swap pop # lexer location prevChar currChar buffer bufferEnd
-					
-					5 index lexerIsDone call
-					{
-						5 index lexerCurrentChar call
-						1 index writeByte
-						1 getBytePtr
-						0
-						1 index writeByte
-						1 getBytePtr
-					} if
-					
-					pop
-					# 5 copy "%d %d %d %d %d\n"c printf
-
-					NameToken swap # lexer location prevChar currChar buffer [NameToken]
-					4 index swap
-					makeToken call
-				}
-				{
-					OperatorToken 3 index '-'
-					makeToken call
-				} ifelse
-			}
-			{
-				OperatorToken 3 index
-				5 index lexerAdvanceOne call
-				makeToken call
-			}
-			ifelse
-		}
-		{ 
-			# lexer location prevChar currChar
-			3 index isDigit lexerAdvanceWhile call # lexer location prevChar currChar str
-			stringToInt # lexer location prevChar currChar parsedNum
-			1 index '-' = # lexer location prevChar currChar parsedNum isNeg
-			{ -1 * } if # lexer location prevChar currChar parsedNum
-			IntToken swap # lexer location prevChar currChar [IntToken] parsedNum
-			4 index swap # lexer location prevChar currChar [IntToken] location parsedNum
-			makeToken call
-		} ifelse
-		5 1 roll
-		4 popN
-	} ifelse
-} lexerGetToken def # lexer
-
-{ # tokens lexer
-	dup lexerIsDone call !
-	{
-		pop
-	}
-	{
-		dup lexerGetToken call
-		dup {
-			2 popN
-		}
-		{
-			dup debugToken call
-			2 index linkedListAppend call
-			lexerGetTokensLoop call
-		} ifelse
-	} ifelse
-} lexerGetTokensLoop def
-
-{ # lexer
-	1 createLinkedList call
-	swap
-	lexerGetTokensLoop call
-} lexerGetTokens def
-
-{ OutputFd get close } lexerCloseOutput def # lexer
+{ 0 index Pointer get 1 index BytesRead get print pop } lexerPrintBuffer def
 
 {  2 index OutputFd get fprint pop } lexerOutPrint def # lexer string size
 {  swap OutputFd get fprintf } lexerOutPrintf def # [...data...] lexer formatString
+
+
+# "./compiler/Calculate.toast"c createLexer call 
+# dup debugLexer call
+# dup lexerPrintBuffer call
+# dup lexerFillBuffer call 
+# dup lexerPrintBuffer call
+
+# { "%c"c printf } debugChar def
+# "./compiler/Calculate.toast"c createLexer call 
+# dup debugLexer call
+# "Whiling!" print
+# dup Location get debugLocation call
+# dup { '+' != } lexerAdvanceWhile call
+# "DoneWhiling! '%s'"c printf
+# dup Location get debugLocation call
+# dup { 0 != } lexerAdvanceWhile call
+# "DoneWhiling! '%s'"c printf
+
+
 # node bootstrap/js/toast.js compiler/lexer.toast -od bin -p

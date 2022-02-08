@@ -1,3 +1,4 @@
+%once
 [0] failedAssertCount def
 
 { failedAssertCount 0 get 1+ failedAssertCount 0 set } incrementFails def

@@ -105,6 +105,17 @@ dup 4 get
 assertEqual call
 pop
 
+getVals call dup dup # arr arr arr
+{ 2 > } findFirst call # arr arr ptr
+swap 3 getPtr swap # arr correctPtr ptr
+"FindFirst"c
+assertEqual call # arr
+
+dup # arr arr
+{ 2 > } findLast call # arr ptr
+swap 4 getPtr swap # correctPtr ptr
+"FindLast"c
+assertEqual call
 
 "---First---\n" print
 getVals call first call 0 swap "First"c assertEqual call

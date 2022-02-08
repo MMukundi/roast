@@ -1,0 +1,46 @@
+%<command>
+%"./lexer"
+
+{ 0 index Pointer get 1 index BytesRead get print pop } lexerPrintBuffer def
+
+"/usr/local/bin/nasm"c NasmHome def
+"/usr/bin/ld"c LinkerHome def
+
+"bootstrap/std"c standardLibrary def
+"compiler/Calculate.toast"c inputFile def
+"out.asm"c filePath def
+"out.o"c objectPath def
+"finalOut"c outputPath def
+
+inputFile createLexer call
+dup lexerGetTokens call
+dup linkedListSize call "\nToken count %d\n"c printf
+
+{
+	dup "(%d,"c printf
+	linkedListForEachSkip index # lexer
+	swap read # lexer token
+	dup "%d,"c printf
+	# dup debugToken call # lexer token
+	dup tokenType call 
+	dup "Type:%d)"c printf
+	TokenWriters swap get  # lexer token TokenWriter
+	call
+	# 3 copy "\n%d %d %d\n"c printf
+} linkedListForEach call
+dup lexerCloseOutput call
+dup "\ttoastExit 0\n" lexerOutPrint call
+
+[ NasmHome filePath "-fmacho64"c "-g"c "-o"c objectPath "-i"c standardLibrary 0 ]
+NasmHome command call
+
+"Assembled\n" print
+
+[ LinkerHome "-e"c "_main"c "-static"c objectPath "-o"c  outputPath 0 ]
+LinkerHome command call
+
+"Linked\n" print
+
+[ outputPath 0 ] outputPath command call
+"Done\n" print
+# node bootstrap/js/toast.js compiler/compiler.toast -od bin -p

@@ -1,0 +1,311 @@
+%<queue>
+%<stack>
+%<array>
+
+{ # char
+	getDigit call 
+	dup 10 <
+	swap -1 >
+	*
+} isDigit def
+
+{ # char
+	'0' -
+} getDigit def
+
+{
+	0 index '+' =
+	1 index '-' =
+	2 index '*' =
+	3 index '/' =
+	4 index '%' =
+	5 index '^' =
+	+ + + + +
+	swap pop
+} isOperation def
+
+{
+	0 index '+' =
+	1 index '-' =
+	+
+	{
+		0 index '*' =
+		1 index '/' =
+		2 index '%' =
+		+ +
+		{
+			0 index '^' =
+			{
+				-1
+			}
+			{
+				2
+			} ifelse
+		}
+		{
+			1
+		} ifelse
+	}
+	{
+		0
+	} ifelse
+	swap pop
+} operationPrecedence def
+
+{ # char
+	# Bulk this up
+	0 index ' ' =
+	1 index '\n' =
+	2 index '\t' =
+	3 index '\r' =
+	+ + +
+	swap pop
+} isWhitespace def
+
+
+{ # val str
+	dup readByte dup 
+	isDigit call
+	{ pop }
+	{
+		3 -1 roll 10 * + '0' -
+		swap
+		1+
+		readNumLoop call
+	}
+	ifelse
+	# val newStrPtr
+} readNumLoop def
+
+{ # strPtr
+	0 swap readNumLoop call
+} readNum def
+
+{ dup readByte isWhitespace call { 1+ skipWhitespaceLoop call } if } skipWhitespaceLoop def
+{ skipWhitespaceLoop call } skipWhitespace def
+
+{ # opChar
+	opStack stackIsEmpty call
+	{
+		# opChar
+		opStack stackTop call # opChar prevOpChar
+		operationPrecedence call swap
+		operationPrecedence call swap
+		< # shouldPop
+		{
+			opStack stackPopSingle call
+			0 swap outputQueue 
+			enqueue call
+			dup precedencePop call
+		}
+		if
+	}
+	{ pop }
+	ifelse
+	# 2 getPtr read
+	# dup operationPrecedence call printNum
+} precedencePop def
+
+{ # strPtr
+	skipWhitespace call
+
+	dup readByte
+	dup isDigit call
+	{
+		dup isOperation call
+		{
+			dup '(' =
+			{ 
+				dup ')' =
+				{ pop }
+				{
+					pop
+					popTillParen call
+					1+
+				} ifelse
+			}
+			{
+				pop
+				'(' opStack stackPush call
+				1+
+			} ifelse
+		}
+		{
+			dup precedencePop call
+			opStack stackPush call
+			1+
+		}
+		ifelse
+	}
+	{
+		swap 1+ swap
+		getDigit call
+		swap readNumLoop call
+		swap 1 swap outputQueue enqueue call
+		# "Enqueued\n"c printf
+	}
+	ifelse
+} processToken def
+
+{
+	# dup dup readByte "{%d %d}\n"c printf
+	dup readByte 0 =
+	{
+		processToken call
+		# 5 copy "\n[%d %d %d %d %d]\n"c printf
+		shuntingYardLoop call
+	}
+	{
+		pop
+	}
+	ifelse
+} shuntingYardLoop def
+{
+	opStack stackIsEmpty call !
+	{
+		opStack stackPopSingle call
+		dup '(' =
+		{
+			0 swap outputQueue enqueue call
+			popTillParen call
+		}
+		{
+			pop
+		} ifelse
+	}
+	if
+} popTillParen def
+
+{
+	opStack stackIsEmpty call !
+	{
+		opStack stackPopSingle call
+		0 swap outputQueue enqueue call
+		shuntingYardEndLoop call
+	}
+	if
+} shuntingYardEndLoop def
+
+# { evalStack } evalOperation def #opChar
+{
+	evalStack stackPopSingle call
+	evalStack stackPopSingle call swap
+	3 -1 roll
+
+	dup '+' =
+	{
+		dup '-' =
+		{
+			dup '*' =
+			{
+				dup '/' =
+				{
+					dup '%' =
+					{
+						dup '^' =
+						{
+							3 popN
+						}
+						{ 3 popN 0 } ifelse
+					}
+					{ pop % } ifelse
+				}
+				{ pop / } ifelse
+			}
+			{ pop * } ifelse
+		}
+		{ pop - } ifelse
+	}
+	{ pop + } ifelse
+	evalStack swap stackPushSingle call
+} evalOperation def
+{ evalStack stackPush call } evalNum def #num
+{
+	outputQueue queueIsEmpty call !
+	{
+		outputQueue dequeue call
+		dup 0 get
+		swap 1 get
+		evalOperation
+		evalNum
+		ifelse
+		shuntingYardEvalLoop call
+	}
+	if
+} shuntingYardEvalLoop def
+{ 
+	dup
+	shuntingYardLoop call
+	shuntingYardEndLoop call
+
+	# Print rpned
+	# 0 
+	# outputQueue queueSize call
+	# 1 range call
+	# { outputQueue swap queueIndexPointer call dup read swap 1 getPtr read  { "%c "c } { "%d "c } ifelse printf } foreach call
+	
+	shuntingYardEvalLoop call
+	evalStack stackPopSingle call swap
+	"   %s = %d"c printf
+} shuntingYard def
+
+15 maxTokens def
+2 maxTokens createQueue call outputQueue def
+1 maxTokens createStack call opStack def
+1 maxTokens createStack call evalStack def
+# "543+87*3-52"c shuntingYard call
+
+50 expressionSize def
+expressionSize buffer expressionBuffer def
+3 yesOrNoSize def
+yesOrNoSize buffer yesOrNo def
+{ # buffer size
+	# 2 copy "size %d buffer %d\n"c printf
+	0 3 1 roll # 0 buffer size
+	0 swap # 0 buffer 0 size
+	2 index swap # 0 buffer 0 buffer size
+	# 5 copy "size %d buffer %d zero %d buffer %d zero %d\n"c printf
+	readFileTo # 0 buffer bytesRead
+	1- dup 4 1 roll
+	setByte
+} inputTo def
+
+{
+	dup printf
+	yesOrNo yesOrNoSize inputTo call
+	0 > 
+	{
+		yesOrNo 0 getByte 'y' =
+		{
+			yesOrNo 0 getByte 'n' =
+			{
+				"Invalid input!\n" print
+				getYOrN call
+			} 
+			{ pop }
+			ifelse
+
+		}
+		{
+			pop
+			expressionLoop call
+		} ifelse
+	} if
+} getYOrN def
+{
+	# 0 expressionBuffer
+	# 0 expressionBuffer expressionSize readFileTo
+	# 1 - setByte
+	"Please enter an experssion: " print
+	expressionBuffer expressionSize inputTo call
+	0 >
+	{
+		expressionBuffer shuntingYard call
+		"\n" print
+		expressionLoop call
+	}
+	if
+	# "\nContinue[y/n]? "c getYOrN call
+} expressionLoop def 
+expressionLoop call
+# node bootstrap/js/toast.js test/rpn.toast -od bin
