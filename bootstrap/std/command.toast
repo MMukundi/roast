@@ -1,14 +1,14 @@
 [ 0 ] status def
-status 1+ readStatusByte def
+status readStatusByte def
 
 { # [...args] command
 	ForkSyscode
 	syscall0 # isParent pid
-	swap
+	swap # pid isParent 
 	{
-		0 0 
-		status 8 +
-		4 -1 roll
+		0 0 # pid 0 0
+		status # pid 0 0 status
+		4 -1 roll # 0 0 status pid
 		6 -2 roll 2 popN
 		WaitSyscode syscall4
 	}
