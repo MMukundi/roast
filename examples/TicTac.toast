@@ -1,12 +1,8 @@
 0 empty def
-[ 
-	" "c 
-	"X"c 
-	"O"c 
-] playerStrings def
+" XC"c playerStrings def
 
-"%s|%s|%s\n" pop rowString def
-"-----\n" pop sepString def
+"%c|%c|%c\n"c rowString def
+"-----\n"c sepString def
 3 boardSize def
 [ 
 		# rows
@@ -18,49 +14,39 @@
 		[ 0 4 8 ] [ 2 4 6 ]
 ]
 winSet def
-"0" pop debugInput def
+"0"c debugInput def
 boardSize boardSize * cellCount def
 cellCount 1 + cellCountAndTurn def
 
 {
-	0 index 2 get playerStrings swap get
-	1 index 1 get playerStrings swap get
-	2 index 0 get playerStrings swap get
+	0 index 2 get playerStrings swap getByte
+	1 index 1 get playerStrings swap getByte
+	2 index 0 get playerStrings swap getByte
 	rowString printf	
 	sepString printf
 
-	0 index 5 get playerStrings swap get
-	1 index 4 get playerStrings swap get
-	2 index 3 get playerStrings swap get
+	0 index 5 get playerStrings swap getByte
+	1 index 4 get playerStrings swap getByte
+	2 index 3 get playerStrings swap getByte
 
 	rowString printf
 	sepString printf
 
-	0 index 8 get playerStrings swap get
-	1 index 7 get playerStrings swap get
-	2 index 6 get playerStrings swap get
+	0 index 8 get playerStrings swap getByte
+	1 index 7 get playerStrings swap getByte
+	2 index 6 get playerStrings swap getByte
 
 	rowString printf
 	pop
 } printBoard def
 
-{
-	"Player " print
-	1+ printNum
-	"'s turn\n" print
-} printTurn def
-{
-	cellCountAndTurn copy
-} copyState def
+{ 1 + "Player %d's turn\n"c printf } printTurn def
 
 {
-	dup
-	1 get
+	dup 1 get
 	printTurn call
-	dup
 	0 get
 	printBoard call
-	pop
 } printState def
 # {
 # 	# condFunc block
@@ -117,6 +103,10 @@ cellCount 1 + cellCountAndTurn def
 { dup getChar call } copyChar def
 { + 1 print } printChar def
 
+{ swap 0 get swap get } cellGetValue def # [board turnCount] index
+{ dup 0 >= swap 9 < & } cellIndexInRange def # index
+{ cellGetValue call empty = } cellIsEmpty def # [board turnCount] index
+{ cellGetValue call = } cellMatchesPlayer def # player [board turnCount] index
 
 {
 	[ dup 0 ] dup
@@ -175,10 +165,38 @@ cellCount 1 + cellCountAndTurn def
 	doWhile call
 	1 get # index
 	swap pop
-} getCellIndex def
+} getCellIndexOld def
+
 { # [ board turnCounter ]
-	dup
-	getCellIndex call  # [ board turnCounter ] index
+	dup printState call  # [ board turnCounter ]
+	"Pick an open spot [Enter a number 1-9]: " print # [ board turnCounter ]
+	input pop stringToInt 1 - # [ board turnCounter ] index
+	dup cellIndexInRange call # [ board turnCounter ] index isInRange
+	{
+		"Invalid spot; '%d' is not between 1 and 9\n"c printf # [ board turnCounter ] index
+		getCellIndexLoop call	
+	}
+	{
+		2 copy cellIsEmpty call
+		{
+			swap pop
+		}
+		{
+			"Invalid spot; cell '%d' is not empty\n"c printf # [ board turnCounter ] index
+			getCellIndexLoop call	
+		}
+		ifelse
+	}
+	ifelse
+} getCellIndexLoop def
+
+{ # [ board turnCounter ]
+	getCellIndexLoop call
+} getCellIndex def
+
+{ # [ board turnCounter ]
+	dup getCellIndex call  # [ board turnCounter ] index
+	dup "Index: %d"c printf
 
 	1 index # [ board turnCounter ] index [ board turnCounter ] 
 	0 get # [ board turnCounter ] index board
@@ -190,17 +208,43 @@ cellCount 1 + cellCountAndTurn def
 	dup # [ board turnCounter ] [ board turnCounter ]
 	1 get # [ board turnCounter ] turnCounter
 	! # [ board turnCounter ] (!turnCounter)
-	1 index 1 set # [ board !turnCounter ]
-
+	swap 1 set # [ board !turnCounter ]
 } run def
+
+# Board
+dup { # [board turnCount] 
+	dup run call # [board turnCount]
+	# checkWin call # [board turnCount] winnerNumber
+	0
+
+	dup
+	{ # [board turnCount] 0
+		pop
+		mainLoop call
+	}
+	{ # [board turnCount] winnerNumber
+		"Player %d wins!\n"c printf
+		0 get
+		printBoard call
+		pop
+		0
+	}
+	ifelse
+
+	mainLoop if
+} mainLoop def
+mainLoop call
 
 { # [board turnCount]
 	[
 		dup 0 get  # [board turnCount] [ board
 		winSet  # [board turnCount] [ board winSet
 		0 #  [board turnCount] [ board winSet index
-	]#  [board turnCount] [board winSet index] [board winSet index]
-	dup {
+	]
+	# [board turnCount] [board winSet index]
+	dup # [board turnCount] [board winSet index] [board winSet index]
+
+	{
 		# - [board winSet index]
 
 		dup
@@ -296,41 +340,4 @@ cellCount 1 + cellCountAndTurn def
 	if
 	# otherwise just return their number
 } checkWin def
-
-# Board
-dup { # [board turnCount] 
-	run call # [board turnCount]
-	# 6 copy "Board2:%d\nLoopFunc:%d\nBoard1: %d\nBoardOrig: %d\nArgc: %d\nArgV: %d\n"c printf
-
-	# "printNum" print
-	checkWin call # [board turnCount] winnerNumber
-	# 7 copy "index: %d\nBoard2:%d\nLoopFunc:%d\nBoard1: %d\nBoardOrig: %d\nArgc: %d\nArgV: %d\n"c printf
-	dup
-	{ # [board turnCount] 0
-		pop pop 1
-	}
-	{ # [board turnCount] winnerNumber
-		"Player %d wins!\n"c printf
-		0 get
-		printBoard call
-		pop
-		0
-	}
-	ifelse
-} doWhile call
-
-
-# [0] { 	
-# 	#... [n:int]
-# 	dup 0 get dup # [n] n n
-# 	"Num: %d\n" pop printf # [n] n
-# 	# Increment
-# 	1+ # [n] (n+1)
-# 	2 copy swap 0 set # [n+1] (n+1)
-
-# 	#Check Size (and negate)
-# 	5 <= # [n+1] (n+1<=5)
-# 	swap pop
-# }
-# doWhile call
 

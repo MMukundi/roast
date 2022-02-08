@@ -16,16 +16,15 @@
 	"test/math.toast"c
 	"test/memcopy.toast"c
 ]
-{
-	dup "----Running test [%s]-----\n"c printf
+{ # str
+	dup "----Running test [%s]-----\n"c printf # str
 	# [ dup NodeHome "bootstrap/js/toast.js"c 3 -1 roll "-od"c "bin"c 0 ]
-	dup testArgs 2 set testArgs
+	dup testArgs 2 set testArgs # str args
 	# swap pop
-	NodeHome
+	NodeHome  # str args prg
 	command call
-	swap 1 index swap
+	pop swap
 	"----Exited[%s](Code %d)-----\n"c printf
-	pop
 	# 2 popN
 }
 foreach call
