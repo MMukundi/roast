@@ -58,9 +58,8 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		// If this is a variable definition
 		if (defToken && nameToken && nameToken.type === TokenType.Name && defToken.type === TokenType.Name && defToken.value == "def") {
-			// console.log("def!")
 			name = nameToken.value
-			// Consuming the name and def tokens, as tjey does not need to recompile in this case
+			// Consuming the name and def tokens, as they does not need to recompile in this case
 			compiler.currentContext.index += 2
 		}
 
@@ -322,7 +321,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				if (redefineNameToken.type === TokenType.Name) {
 					compiler.assemblySource += `\ttoastRedefineVariable ${redefineNameToken.value}\n`
 				} else {
-					// console.log(nameToken)
 					errorLogger.flushLog("Missing name token to define variable")
 				}
 				return;
@@ -336,7 +334,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
 					}
 				} else {
-					// console.log(nameToken)
 					errorLogger.flushLog("Missing name token to define variable")
 				}
 				return;
@@ -487,7 +484,6 @@ export class Compiler {
 	errorHere(error: string, location: SourceLocation) {
 		errorLogger.flushLog(`[${this.source.locationString(location)}] ${error}`)
 	}
-
 	writeToken(token: Token) {
 		//? Fun note: This replacement enables tail recursion :O
 		// const nextToken = this.lookAhead(1)
@@ -501,7 +497,7 @@ export class Compiler {
 		// }
 
 		if (token) {
-			this.assemblySource += `\n\t%line ${token.location.line}+0 ${token.location.sourceName}\n`
+			// this.assemblySource += `\n\t%line ${token.location.line}+0 ${token.location.sourceName}\n`
 			this.assemblySource += `\t;;--- ${unescapeString(tokenString(token))} ---\n`
 			compilerProcessor[token.type](this, token as any)
 		}

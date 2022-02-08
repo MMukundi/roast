@@ -56,8 +56,18 @@ export class StyledLogger<Logger extends AnyLogger> {
 		this.resetAll()
 	}
 	styleLog(s: string) {
-		this.styleLogger(this.prefix)
+		this.styleLogPrefix()
 		this.styleLogger(s)
+		this.styleLogSuffix()
+	}
+	styleLogWithoutAffix(s: string) {
+		this.styleLogger(s)
+	}
+
+	styleLogPrefix() {
+		this.styleLogger(this.prefix)
+	}
+	styleLogSuffix() {
 		this.styleLogger(this.suffix)
 	}
 

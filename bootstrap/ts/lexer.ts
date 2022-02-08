@@ -2,7 +2,8 @@ import assert from "assert"
 import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
-import { makeToken, SourceLocation, Token, TokenType } from "./tokens"
+import { errorLogger } from "./loggers"
+import { makeToken, SourceLocation, Token, tokenString, TokenType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */
@@ -139,19 +140,6 @@ export class LexerSource {
 			}
 		}
 	}
-
-	// lookBehind(index = 1): Token {
-	// 	return this.deepestScope.prevTokens[this.deepestScope.prevTokens.length - index]
-	// }
-
-	// lookAhead(index = 1): Token {
-	// 	while (this.deepestScope.nextTokens.length < index && !this.done()) {
-	// 		const token = this.parseToken()
-	// 		if (token)
-	// 			this.deepestScope.nextTokens.push(token)
-	// 	}
-	// 	return this.deepestScope.nextTokens[index - 1]
-	// }
 
 	/** Gets the current character.
 	 * @returns The current character.
@@ -315,6 +303,7 @@ export class LexerSource {
 	*/
 	parseToken(): Token {
 		const token = this.getToken()
+		// console.log(token ? tokenString(token) : "UF", token?.type, this.includeDone(), this.done(), this.scopeStack.length)
 		if (this.includeDone() && this.includes) {
 			this.deepestSource.includedIn.includes = null
 		}
@@ -347,11 +336,27 @@ export class LexerSource {
 
 				if (currentChar === BlockStart) {
 					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
+					// console.log("{")
 				}
 
 				this.skipWhitespace()
 				this.skipComments()
 				while (this.current() != end) {
+					// this.skipWhitespace()
+					// this.skipComments()
+					if (this.includeDone()) {
+						const message = currentChar === '{' ? `Unbalanced code block brackets` : `Unbalanced array brackets`
+						// errorLogger.log(message)
+						errorLogger.styleLogPrefix()
+						errorLogger.styleLogWithoutAffix(this.locationString(tokenLocation))
+						errorLogger.styleLogWithoutAffix("\n\t")
+						errorLogger.styleLogWithoutAffix(message)
+						errorLogger.styleLogSuffix()
+						errorLogger.flush()
+						assert(!this.includeDone(), message)
+					}
+
+
 					const token = this.parseToken()
 					this.skipWhitespace()
 					this.skipComments()
@@ -359,6 +364,7 @@ export class LexerSource {
 				}
 				if (currentChar === BlockStart) {
 					this.scopeStack.pop()
+					// console.log("}")
 				}
 
 				this.advanceOne()
