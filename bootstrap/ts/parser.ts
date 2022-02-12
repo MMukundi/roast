@@ -4,14 +4,17 @@ import path from "path";
 import { CompilerFlags, CompilerOptions, CompilerRootDirectory, Inputs, Options, StandardLibraryDirectory } from "./arguments";
 import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
-import { Token, SourceLocation, TokenMap, tokenString, TokenType, TokenValues } from "./tokens";
+import { Token, SourceLocation, TokenMap, tokenString, TokenValues, ToastType } from "./tokens";
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
-import { toastImplicitConversions, closure, ToastType } from "./types"
+import { toastImplicitConversions, closure, CompileTimeConstant } from "./types"
 
 const EntryPoint = "_start"
 type TokenProcessor<T> = {
-	[type in TokenType]: (context: T, value: TokenMap[type]) => void
+	[type in ToastType]: (context: T, value: TokenMap[type]) => void
 }
+
+const SysCodes = { "Exit": "Exit", "Fork": "Fork", "Write": "Write", "Open": "Open", "Exec": "Exec", "Wait": "Wait4" }
+
 function OpenBlock(compiler: Compiler, name?: string) {
 	// Start a new label
 	compiler.assemblySource += `\ttoastBeginCodeBlock${name ? ` ${name}` : ""}\n`
@@ -23,41 +26,27 @@ function CloseBlock(compiler: Compiler, name?: string) {
 }
 
 const compilerProcessor: TokenProcessor<Compiler> = {
-	[TokenType.OpenList](compiler) {
-		// compiler.textSection += compiler.pushAddressToStack(compiler.listStack, "rsp")
+	[ToastType.Array](compiler, { value: { end, tokens }, location }) {
 		compiler.assemblySource += `\ttoastPushMark\n`
-		// compiler.errorHere("compiling OpenList tokens not yet implemented")
-	},
-	[TokenType.CloseList](compiler, { location }) {
-		// Pop a bunch of stuff from the list
-		// compiler.popStack(compiler.listStack, "r8")
-		compiler.assemblySource += `\ttoastArrayUntilMark\n`
-		// compiler.errorHere("compiling CloseList tokens not yet implemented", location)
-	},
-	[TokenType.List](compiler, { value: { end, tokens }, location }) {
-		compilerProcessor[TokenType.OpenList](compiler, { value: null, location, type: TokenType.OpenList });
+		// compilerProcessor[ToastType.OpenArray](compiler, { value: null, location, type: ToastType.OpenArray });
+
 		compiler.contextStack.push({ index: 0, tokens })
 		for (const token of tokens) {
 			compiler.writeToken(token)
 		}
 		compiler.contextStack.pop()
-		compilerProcessor[TokenType.CloseList](compiler, { value: null, location: end, type: TokenType.CloseList });
+
+		compiler.assemblySource += `\ttoastArrayUntilMark\n`
+		// compilerProcessor[ToastType.CloseArray](compiler, { value: null, location: end, type: ToastType.CloseArray });
 	},
-	[TokenType.OpenBlock](compiler) {
-		// Start a new label
-		OpenBlock(compiler)
-	},
-	[TokenType.CloseBlock](compiler) {
-		CloseBlock(compiler)
-	},
-	[TokenType.CodeBlock](compiler, { value: { tokens, end }, location }) {
+	[ToastType.CodeBlock](compiler, { value: { tokens, end }, location }) {
 		const nameToken = compiler.lookAhead(1)
 		const defToken = compiler.lookAhead(2)
 
 		let name = null
 
 		// If this is a variable definition
-		if (defToken && nameToken && nameToken.type === TokenType.Name && defToken.type === TokenType.Name && defToken.value == "def") {
+		if (defToken && nameToken && nameToken.type === ToastType.Name && defToken.type === ToastType.Name && defToken.value == "def") {
 			name = nameToken.value
 			// Consuming the name and def tokens, as they does not need to recompile in this case
 			compiler.currentContext.index += 2
@@ -71,51 +60,25 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		CloseBlock(compiler, name)
 		compiler.contextStack.pop()
 	},
-	[TokenType.Name](compiler, { value: name, location }) {
+	[ToastType.Name](compiler, { value: name, location }) {
+		const SysCodeString = 'Syscode'
+		const SysCallString = 'Syscall'
+
+		// BuiltInConstants
+		if (CompileTimeConstant.getConstant(name)) {
+			compiler.assemblySource += `\tmov r8, ${CompileTimeConstant.getConstant(name).assemblyValue}\n\tpush r8\n`
+			return
+		}
+
+		// Raw syscalls
+		let SyscallCount;
+		if (name.startsWith(SysCallString.toLocaleLowerCase()) && !isNaN(parseInt(SyscallCount = name.substring(SysCallString.length)))) {
+			compiler.assemblySource += `\ttoastStackSyscall ${SyscallCount}\n`
+			// compiler.assemblySource += `\tpop rax\n\tsyscall\n\tpush rax\n`
+			return;
+		}
+
 		switch (name) {
-			// SYSTEM
-			case 'ExitSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Exit\n\tpush r8\n`
-				return;
-			case 'ForkSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Fork\n\tpush r8\n`
-				return;
-			case 'WriteSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Write\n\tpush r8\n`
-				return;
-			case 'OpenSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Open\n\tpush r8\n`
-				return;
-			case 'ExecSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Exec\n\tpush r8\n`
-				return;
-			case 'WaitSyscode':
-				compiler.assemblySource += `\tmov r8, Syscode.Wait4\n\tpush r8\n`
-				return;
-
-			case 'syscall0':
-				compiler.assemblySource += `\ttoastStackSyscall 0\n`
-				// compiler.assemblySource += `\tpop rax\n\tsyscall\n\tpush rax\n`
-				return;
-			case 'syscall1':
-				compiler.assemblySource += `\ttoastStackSyscall 1\n`
-				return;
-			case 'syscall2':
-				compiler.assemblySource += `\ttoastStackSyscall 2\n`
-				return;
-			case 'syscall3':
-				compiler.assemblySource += `\ttoastStackSyscall 3\n`
-				return;
-			case 'syscall4':
-				compiler.assemblySource += `\ttoastStackSyscall 4\n`
-				return;
-			case 'syscall5':
-				compiler.assemblySource += `\ttoastStackSyscall 5\n`
-				return;
-			case 'syscall6':
-				compiler.assemblySource += `\ttoastStackSyscall 6\n`
-				return;
-
 			/// Bits
 			case '<<':
 				compiler.assemblySource += `\ttoastStackLogic shl\n`
@@ -127,9 +90,11 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastStackCompute xor\n`
 				return;
 			case '|':
+			case '||':
 				compiler.assemblySource += `\ttoastStackCompute or\n`
 				return;
 			case '&':
+			case '&&':
 				compiler.assemblySource += `\ttoastStackCompute and\n`
 				return;
 			case '~':
@@ -174,15 +139,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\ttoastStackCompare ne\n`
 				return;
 
-			// Logic
-			// TODO: RETOOL NEGATION 
-			case 'true':
-				compiler.assemblySource += "\tpush 1"
-				return;
-			case 'false':
-				compiler.assemblySource += "\tpush 0"
-				return;
-
 			case '!':
 				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
 				return;
@@ -223,7 +179,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 			case 'array':
 				const arraySizeToken = compiler.lookBehind(1)
-				if (arraySizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
+				if (arraySizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
 					// TODO: Here, we can create const size arrays, but only if in the outer scope
 					// TODO: Do this in the parse value section
 					compiler.assemblySource += `\ttoastStackCreateArray\n`
@@ -237,7 +193,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			case 'buffer':
 				const bufferSizeToken = compiler.lookBehind(1)
-				if (bufferSizeToken?.type == TokenType.Value && compiler.scopeDepth == 0) {
+				if (bufferSizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
 					// TODO: Here, we can create const size buffers, but only if in the outer scope
 					// TODO: Do this in the parse value section
 					compiler.assemblySource += `\ttoastStackCreateBuffer\n`
@@ -318,7 +274,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 			case 'redef':
 				const redefineNameToken = compiler.lookBehind(1)
-				if (redefineNameToken.type === TokenType.Name) {
+				if (redefineNameToken.type === ToastType.Name) {
 					compiler.assemblySource += `\ttoastRedefineVariable ${redefineNameToken.value}\n`
 				} else {
 					errorLogger.flushLog("Missing name token to define variable")
@@ -326,9 +282,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 			case 'def':
 				const nameToken = compiler.lookBehind(1)
-				if (nameToken.type === TokenType.Name) {
+				if (nameToken.type === ToastType.Name) {
 					const valueToken = compiler.lookBehind(2)
-					if ((valueToken.type === TokenType.CodeBlock || valueToken.type === TokenType.List) && valueToken.value.name != null) {
+					if ((valueToken.type === ToastType.CodeBlock || valueToken.type === ToastType.Array) && valueToken.value.name != null) {
 						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`
 					} else {
 						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
@@ -412,7 +368,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		const defToken = compiler.lookAhead(1)
 		compiler.assemblySource += `\tlea r8, [${name}]\n`
-		if (defToken && !(defToken.type === TokenType.Name && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
+		if (defToken && !(defToken.type === ToastType.Name && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
 			compiler.assemblySource += `\tmov r8, [r8]\n`
 		}
 		compiler.assemblySource += `\tpush r8\n`
@@ -427,20 +383,29 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		//#endregion DEBUG
 		// compiler.errorHere(`compiling Name tokens(${name}) not yet implemented`, location)
 	},
-	[TokenType.Quote](compiler, { location }) {
-		compiler.errorHere("compiling Quote tokens not yet implemented", location)
-	},
-	[TokenType.String](compiler, { value: str }) {
+	[ToastType.String](compiler, { value: str }) {
 		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\tmov r8, toastCurrentStringLength\n\tpush r8\n`
 	},
-	[TokenType.CString](compiler, { value: str }) {
+	[ToastType.CString](compiler, { value: str }) {
 		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n`
 	},
-	[TokenType.Value](compiler, { value }) {
+	[ToastType.Integer](compiler, { value }) {
 		// compiler.errorHere("compiling Value tokens not yet implemented")
 		compiler.assemblySource += `\tpush ${value}\n`
 		// compiler.textSection += `\tmov r8, 200\n\tpush r8\n`
-	}
+	},
+
+	// Create actual compilations for new types
+	[ToastType.Boolean](compiler, { value }) { `\tpush ${value ? 1 : 0}\n` },
+	[ToastType.Any](compiler) { },
+	[ToastType.Pointer](compiler) { },
+	[ToastType.FunctionPointer](compiler) { },
+	[ToastType.MemoryRegion](compiler) { },
+	[ToastType.Syscode](compiler) { },
+
+	[ToastType.Keyword](compiler) { },
+	[ToastType.MathOperator](compiler) { },
+	[ToastType.BitwiseOperator](compiler) { },
 }
 export class Compiler {
 	static fromSource(sourcePath: string): Compiler {

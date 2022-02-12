@@ -1,19 +1,13 @@
-export enum ToastType {
-	Integer,
-	Boolean,
-	Pointer,
-	String,
-	Array,
-	MemoryRegion,
-}
+import { Compiler } from "./parser"
+import { Token, ToastType } from "./tokens"
 
-export function closure<T>(mapping: Map<T, T[]>): Map<T, Set<T>> {
+export function closure<T>(mapping: Map<T, T[]>, common: T[] = []): Map<T, Set<T>> {
 	const newMapping: Map<T, Set<T>> = new Map()
 	for (const [key, value] of mapping) {
 		const newSet = new Set([key])
 		newMapping.set(key, newSet)
 
-		const queue: T[] = [...value]
+		const queue: T[] = [...common, ...value]
 		while (queue.length) {
 			const next = queue.shift()
 			newSet.add(next)
@@ -32,14 +26,70 @@ export function closure<T>(mapping: Map<T, T[]>): Map<T, Set<T>> {
 	return newMapping
 }
 
-
 export const toastImplicitConversions = closure<ToastType>(new Map([
-	[ToastType.Integer, []],
-	[ToastType.Boolean, [ToastType.Integer]],
-	[ToastType.Pointer, [ToastType.Integer]],
+	[ToastType.Keyword, [ToastType.Keyword]],
+	[ToastType.Keyword, [ToastType.Keyword]],
 
-	[ToastType.String, [ToastType.MemoryRegion]],
-	[ToastType.Array, [ToastType.MemoryRegion]],
+
+	[ToastType.Any, [ToastType.Any]],
+
+	[ToastType.Name, [ToastType.Any,]],
+	[ToastType.Integer, [ToastType.Any,]],
+
+	[ToastType.Boolean, [ToastType.Integer]],
+	[ToastType.Pointer, [, ToastType.Integer]],
 
 	[ToastType.MemoryRegion, [ToastType.Pointer]],
+
+	[ToastType.String, [ToastType.MemoryRegion]],
+	[ToastType.CString, [ToastType.CString]],
+
+	[ToastType.Array, [ToastType.MemoryRegion]],
+
+	[ToastType.Syscode, [ToastType.Integer]],
+	[ToastType.FunctionPointer, [ToastType.Pointer]],
 ]))
+
+interface TypeConstraint {
+	// Matches
+	(token: Token, lexer: Compiler): boolean;
+}
+
+function BasicConstraint(type: ToastType): TypeConstraint {
+	return (k, l) => k.type == type
+}
+
+class Signature {
+	constructor(public inputs: TypeConstraint[], public output: TypeConstraint[]) { }
+}
+
+export class CompileTimeConstant {
+	static getConstant(name: string) {
+		return this.BuiltIns[name as keyof typeof this.BuiltIns]
+	}
+	static BuiltIns = {
+		"ExitSyscode": new CompileTimeConstant("Syscode.Exit", ToastType.Syscode),
+		"ForkSyscode": new CompileTimeConstant("Syscode.Fork", ToastType.Syscode),
+		"WriteSyscode": new CompileTimeConstant("Syscode.Write", ToastType.Syscode),
+		"OpenSyscode": new CompileTimeConstant("Syscode.Open", ToastType.Syscode),
+		"ExecSyscode": new CompileTimeConstant("Syscode.Exec", ToastType.Syscode),
+		"WaitSyscode": new CompileTimeConstant("Syscode.Wait4", ToastType.Syscode),
+
+		"True": new CompileTimeConstant("1", ToastType.Boolean),
+		"False": new CompileTimeConstant("0", ToastType.Boolean)
+	}
+	constructor(public assemblyValue: string, public type: ToastType) { }
+}
+
+export class Operator {
+	static BuiltIns = {
+		// "<<": [`toastStackLogic shl`, new Signature([])],
+		"<<": `toastStackLogic shl`,
+		">>": `toastStackLogic shr`,
+
+		"^": `toastStackCompute xor`,
+		"|": `toastStackCompute or`,
+		"&": `toastStackCompute and`,
+		"~": `toastStackComputeOne not`,
+	}
+}

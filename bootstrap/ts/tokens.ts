@@ -1,22 +1,29 @@
-export enum TokenType {
-	/** [ */
-	OpenList,
-	/** ] */
-	CloseList,
+export enum ToastType {
+	// Deprecated delimiter tokens
+	// /** [ */
+	// OpenArray,
+	// /** ] */
+	// CloseArray,
 
-	/** { */
-	OpenBlock,
-	/** } */
-	CloseBlock,
+	// /** { */
+	// OpenBlock,
+	// /** } */
+	// CloseBlock,
 
-	/** " */
-	Quote,
+	// /** " */
+	// Quote,
+
+	/** Unknown */
+	Any,
 
 	/** [0-9]+ */
-	Value,
+	Integer,
 
 	/** [a-zA-Z]+ */
 	Name,
+
+	/** true, false */
+	Boolean,
 
 	/** "^["]+" */
 	String,
@@ -25,10 +32,31 @@ export enum TokenType {
 	CString,
 
 	/** [ ...Tokens ] */
-	List,
+	Array,
 
 	/** { ...Tokens } */
 	CodeBlock,
+
+	/** Built-in function, user defined operation */
+	FunctionPointer,
+
+	/** Any pointer */
+	Pointer,
+
+	/** A block of addressable memory */
+	MemoryRegion,
+
+	/** A system code */
+	Syscode,
+
+	/** for, if, else, ... */
+	Keyword,
+
+	/** +, -, *, /, % */
+	MathOperator,
+
+	/** &, |, ! */
+	BitwiseOperator,
 }
 
 /** A list of tokens */
@@ -36,37 +64,34 @@ type TokenList = Token[]
 
 /** The value expected for each TokenType */
 export type TokenValues = {
-	[TokenType.OpenList]: null
-	[TokenType.CloseList]: null
-	[TokenType.OpenBlock]: null
-	[TokenType.CloseBlock]: null
-	[TokenType.Quote]: null
+	// TODO! Figure out the types for the new types
+	[ToastType.Pointer]: any
+	[ToastType.FunctionPointer]: any
+	[ToastType.MemoryRegion]: any
+	[ToastType.Syscode]: any
+	[ToastType.Keyword]: any
+	[ToastType.MathOperator]: any
+	[ToastType.BitwiseOperator]: any
 
-	[TokenType.Name]: string
-	[TokenType.Value]: number
-	[TokenType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string }
-	[TokenType.List]: { tokens: TokenList, end: SourceLocation, name?: string }
-	[TokenType.String]: string
-	[TokenType.CString]: string
-}
-/**  The strings for the tokens which have specific string constants */
-const tokenStringConstants = {
-	[TokenType.OpenList]: '[',
-	[TokenType.CloseList]: ']',
-	[TokenType.OpenBlock]: '{',
-	[TokenType.CloseBlock]: '}',
-	[TokenType.Quote]: '"'
+	[ToastType.Any]: any
+	[ToastType.Boolean]: boolean
+	[ToastType.Name]: string
+	[ToastType.Integer]: number
+	[ToastType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string }
+	[ToastType.Array]: { tokens: TokenList, end: SourceLocation, name?: string }
+	[ToastType.String]: string
+	[ToastType.CString]: string
 }
 
 /** The Token for a specific TokenType */
-type SpecificToken<T extends TokenType> = { type: T, value: TokenValues[T], location: SourceLocation }
+type SpecificToken<T extends ToastType> = { type: T, value: TokenValues[T], location: SourceLocation }
 /** The Token expected for each TokenType */
 export type TokenMap = {
-	[tokenType in TokenType]: SpecificToken<tokenType>
+	[tokenType in ToastType]: SpecificToken<tokenType>
 }
 
 /** Any Token */
-export type Token = TokenMap[TokenType]
+export type Token = TokenMap[ToastType]
 export type SourceLocation = {
 	/** The number of lines to skip from the beginning of the file */
 	line: number
@@ -76,29 +101,19 @@ export type SourceLocation = {
 	sourceName: string,
 }
 /** Creates a token of the given type */
-export function makeToken<T extends TokenType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {
+export function makeToken<T extends ToastType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {
 	return { type, value, location }
 }
 export function tokenString(token: Token): string {
 	switch (token.type) {
-		case TokenType.CodeBlock:
+		case ToastType.CodeBlock:
 			const values = token.value.tokens
 			const firsts: TokenList = values.slice(0, 3)
 			let summary: TokenList[] = (firsts.length + 2 >= values.length) ? [firsts] : [firsts, [values[values.length - 1]]]
 			return (`CodeBlock<${values.length} instructions>{${summary.map(tokenList => tokenList.map(summaryToken => tokenString(summaryToken))).join("...")}}`)
-		case TokenType.Name:
-			// 	if (false)
-			// 		// if (this.BuiltIns[value[1]])
-			// 		return `BuiltIn[${token.value}]`
-			// 	if (false)
-			// 		// if (this.definitions[value[1]])
-			// 		return `Variable[${token.value}]`
+		case ToastType.Name:
 			return `Name[${token.value}]`;
-		case TokenType.OpenBlock:
-		case TokenType.CloseBlock:
-		case TokenType.OpenList:
-		case TokenType.CloseList:
-			return tokenStringConstants[token.type]
+
 		default:
 			return token.value as string
 	}

@@ -3,7 +3,7 @@ import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
-import { makeToken, SourceLocation, Token, tokenString, TokenType } from "./tokens"
+import { makeToken, SourceLocation, Token, tokenString, ToastType } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */
@@ -18,24 +18,24 @@ const BlockStart = '{'
 /** The symbol which marks the end of a code block */
 const BlockEnd = '}'
 
-/** The symbol which marks the beginning of a list */
-const ListStart = '['
-/** The symbol which marks the end of a list */
-const ListEnd = ']'
+/** The symbol which marks the beginning of an array */
+const ArrayStart = '['
+/** The symbol which marks the end of a array */
+const ArrayEnd = ']'
 
 const DelimiterEnds = {
 	[BlockStart]: {
 		end: BlockEnd,
-		type: TokenType.CodeBlock
+		type: ToastType.CodeBlock
 	},
-	[ListStart]: {
-		end: ListEnd,
-		type: TokenType.List
+	[ArrayStart]: {
+		end: ArrayEnd,
+		type: ToastType.Array
 	},
 } as const
 
 /** Special characters which should not be included in the variable names */
-const ToastDelimiters = new Set([BlockStart, BlockEnd, ListStart, ListEnd])
+const ToastDelimiters = new Set([BlockStart, BlockEnd, ArrayStart, ArrayEnd])
 
 /** A token scope containing all past and future tokens which have been parsed */
 interface Scope {
@@ -124,10 +124,10 @@ export class LexerSource {
 			const token = this.globalScope.prevTokens[i]
 			const nextToken = this.globalScope.prevTokens[i + 1]
 
-			if (token.type === TokenType.Name) {
-				if (nextToken && nextToken.type == TokenType.Name && nextToken.value == "def") {
+			if (token.type === ToastType.Name) {
+				if (nextToken && nextToken.type == ToastType.Name && nextToken.value == "def") {
 					const prevToken = this.globalScope.prevTokens[i - 1]
-					const map = (prevToken && prevToken.type == TokenType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
+					const map = (prevToken && prevToken.type == ToastType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
 
 					map[token.value] = map[token.value] || new Set()
 					map[token.value].add(nextToken.location)
@@ -327,9 +327,9 @@ export class LexerSource {
 		switch (currentChar) {
 			// Testing for unary negation
 			// this.advanceOne()
-			// return makeToken(TokenType.OpenList, tokenLocation)
+			// return makeToken(TokenType.OpenArray, tokenLocation)
 			case BlockStart:
-			case ListStart:
+			case ArrayStart:
 				this.advanceOne()
 				const tokens: Token[] = []
 				const { end, type } = DelimiterEnds[currentChar]
@@ -374,9 +374,9 @@ export class LexerSource {
 				throw ("Unbalanced block end")
 			// this.advanceOne()
 			// return makeToken(TokenType.CloseBlock, tokenLocation)
-			case ListEnd:
+			case ArrayEnd:
 				// this.advanceOne()
-				// return makeToken(TokenType.CloseList, tokenLocation)
+				// return makeToken(TokenType.CloseArray, tokenLocation)
 				throw ("Unbalanced array end")
 
 			// Support for character constants
@@ -396,7 +396,7 @@ export class LexerSource {
 					throw ("Character literal with more than one character")
 				}
 				this.advanceOne()
-				return makeToken(TokenType.Value, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
+				return makeToken(ToastType.Integer, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
 			}
 			case "\"": {
 				const stringLiteral = this.readStringLiteral()
@@ -406,9 +406,9 @@ export class LexerSource {
 				this.advanceOne()
 				if (this.current() === 'c') {
 					this.advanceOne()
-					return makeToken(TokenType.CString, tokenLocation, stringLiteral)
+					return makeToken(ToastType.CString, tokenLocation, stringLiteral)
 				}
-				return makeToken(TokenType.String, tokenLocation, stringLiteral)
+				return makeToken(ToastType.String, tokenLocation, stringLiteral)
 			}
 		}
 
@@ -463,7 +463,7 @@ export class LexerSource {
 				return
 			}
 			// throw ("Invalid preprocessor command")
-			return makeToken(TokenType.Name, tokenLocation, '%')
+			return makeToken(ToastType.Name, tokenLocation, '%')
 		}
 		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
@@ -497,7 +497,7 @@ export class LexerSource {
 			if (firstChar == "-") {
 				value *= -1
 			}
-			return makeToken(TokenType.Value, tokenLocation, value)
+			return makeToken(ToastType.Integer, tokenLocation, value)
 		} else {
 			let name: string = firstChar == "-" ? "-" : ""
 
@@ -513,7 +513,7 @@ export class LexerSource {
 				this.advanceOne()
 			}
 
-			return makeToken(TokenType.Name, tokenLocation, name)
+			return makeToken(ToastType.Name, tokenLocation, name)
 		}
 	}
 }
