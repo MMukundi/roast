@@ -46,7 +46,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		let name = null
 
 		// If this is a variable definition
-		if (defToken && nameToken && nameToken.type === ToastType.Name && defToken.type === ToastType.Name && defToken.value == "def") {
+		if (defToken && nameToken && nameToken.type === ToastType.Name && defToken.type === ToastType.Keyword && defToken.value == "def") {
 			name = nameToken.value
 			// Consuming the name and def tokens, as they does not need to recompile in this case
 			compiler.currentContext.index += 2
@@ -280,19 +280,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 					errorLogger.flushLog("Missing name token to define variable")
 				}
 				return;
-			case 'def':
-				const nameToken = compiler.lookBehind(1)
-				if (nameToken.type === ToastType.Name) {
-					const valueToken = compiler.lookBehind(2)
-					if ((valueToken.type === ToastType.CodeBlock || valueToken.type === ToastType.Array) && valueToken.value.name != null) {
-						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`
-					} else {
-						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
-					}
-				} else {
-					errorLogger.flushLog("Missing name token to define variable")
-				}
-				return;
 
 			// New commands
 			case 'strCopy':
@@ -368,7 +355,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 		const defToken = compiler.lookAhead(1)
 		compiler.assemblySource += `\tlea r8, [${name}]\n`
-		if (defToken && !(defToken.type === ToastType.Name && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
+		if (defToken && !(defToken.type === ToastType.Keyword && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
 			compiler.assemblySource += `\tmov r8, [r8]\n`
 		}
 		compiler.assemblySource += `\tpush r8\n`
@@ -403,7 +390,23 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	[ToastType.MemoryRegion](compiler) { },
 	[ToastType.Syscode](compiler) { },
 
-	[ToastType.Keyword](compiler) { },
+	[ToastType.Keyword](compiler, { value }) {
+		switch (value) {
+			case 'def':
+				const nameToken = compiler.lookBehind(1)
+				if (nameToken.type === ToastType.Name) {
+					const valueToken = compiler.lookBehind(2)
+					if ((valueToken.type === ToastType.CodeBlock || valueToken.type === ToastType.Array) && valueToken.value.name != null) {
+						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`
+					} else {
+						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
+					}
+				} else {
+					errorLogger.flushLog("Missing name token to define variable")
+				}
+				return;
+		}
+	},
 	[ToastType.MathOperator](compiler) { },
 	[ToastType.BitwiseOperator](compiler) { },
 }

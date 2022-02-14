@@ -28,7 +28,6 @@ export function closure<T>(mapping: Map<T, T[]>, common: T[] = []): Map<T, Set<T
 
 export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.Keyword, [ToastType.Keyword]],
-	[ToastType.Keyword, [ToastType.Keyword]],
 
 
 	[ToastType.Any, [ToastType.Any]],
@@ -37,7 +36,7 @@ export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.Integer, [ToastType.Any,]],
 
 	[ToastType.Boolean, [ToastType.Integer]],
-	[ToastType.Pointer, [, ToastType.Integer]],
+	[ToastType.Pointer, [ToastType.Integer]],
 
 	[ToastType.MemoryRegion, [ToastType.Pointer]],
 

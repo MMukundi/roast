@@ -69,9 +69,10 @@ export type TokenValues = {
 	[ToastType.FunctionPointer]: any
 	[ToastType.MemoryRegion]: any
 	[ToastType.Syscode]: any
-	[ToastType.Keyword]: any
 	[ToastType.MathOperator]: any
 	[ToastType.BitwiseOperator]: any
+
+	[ToastType.Keyword]: string
 
 	[ToastType.Any]: any
 	[ToastType.Boolean]: boolean

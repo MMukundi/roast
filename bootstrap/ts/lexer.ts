@@ -125,13 +125,12 @@ export class LexerSource {
 			const nextToken = this.globalScope.prevTokens[i + 1]
 
 			if (token.type === ToastType.Name) {
-				if (nextToken && nextToken.type == ToastType.Name && nextToken.value == "def") {
+				if (nextToken && nextToken.type == ToastType.Keyword && nextToken.value == "def") {
 					const prevToken = this.globalScope.prevTokens[i - 1]
 					const map = (prevToken && prevToken.type == ToastType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
 
 					map[token.value] = map[token.value] || new Set()
 					map[token.value].add(nextToken.location)
-					i++
 				}
 				else {
 					this.variableUses[token.value] = this.variableUses[token.value] || new Set()
@@ -511,6 +510,10 @@ export class LexerSource {
 			const charAfter = this.current()
 			if (charAfter && isWhitespace(charAfter)) {
 				this.advanceOne()
+			}
+
+			if (name == "def") {
+				return makeToken(ToastType.Keyword, tokenLocation, name)
 			}
 
 			return makeToken(ToastType.Name, tokenLocation, name)
