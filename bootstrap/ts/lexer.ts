@@ -4,6 +4,7 @@ import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
 import { makeToken, SourceLocation, Token, tokenString, ToastType, TokenValues } from "./tokens"
+import { BuiltInFunctionSignature, Signature, SpecificTypeConstraint } from "./types"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */
@@ -41,7 +42,7 @@ const MathOperators: Set<string> = new Set(['+', '-', '*', '/', '%'] as const)
 const ShiftOperators: Set<string> = new Set(['>>', '<<'])
 const BitwiseOperators: Set<string> = new Set(['&', '|', '~', '^'])
 const LogicOperators: Set<string> = new Set(['&&', '||', '!'])
-const Keywords: Set<string> = new Set(['def', 'if', 'ifelse'])
+const Keywords: Set<string> = new Set(['def', 'if', 'ifelse', 'redef'])
 
 /** A token scope containing all past and future tokens which have been parsed */
 export interface Scope {
@@ -327,7 +328,6 @@ export class LexerSource {
 	*/
 	parseToken(): Token {
 		const token = this.getToken()
-		// console.log(token ? tokenString(token) : "UF", token?.type, this.includeDone(), this.done(), this.scopeStack.length)
 		if (this.includeDone() && this.includes) {
 			this.deepestSource.includedIn.includes = null
 		}
@@ -515,6 +515,27 @@ export class LexerSource {
 			}
 			return makeToken(ToastType.Integer, tokenLocation, value)
 		} else {
+			/**
+			case '>=':
+				compiler.assemblySource += `\ttoastStackCompare ge\n`;
+				return;
+			case '<=':
+				compiler.assemblySource += `\ttoastStackCompare le\n`;
+				return;
+
+			case '>':
+				compiler.assemblySource += `\ttoastStackCompare g\n`;
+				return;
+			case '<':
+				compiler.assemblySource += `\ttoastStackCompare l\n`;
+				return;
+			case '=':
+				compiler.assemblySource += `\ttoastStackCompare e\n`;
+				return;
+
+			case '!=':
+				compiler.assemblySource += `\ttoastStackCompare ne\n`;
+				return; */
 			switch (firstChar) {
 				case '+': case '-': case '/': case '*': case '%':
 					if (firstChar != NegativeSign && firstChar != IncludeSign) {
@@ -545,9 +566,16 @@ export class LexerSource {
 					currentChar = this.current()
 					if (currentChar == firstChar) {
 						this.advanceOne()
-						return makeToken(ToastType.ShiftOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.ShiftOperator])
+						return makeToken(ToastType.ShiftOperator, tokenLocation, `${firstChar}${firstChar}` as TokenValues[ToastType.ShiftOperator])
 					}
-					return makeToken(ToastType.Name, tokenLocation, firstChar)
+					if (currentChar == "=") {
+						this.advanceOne()
+						return makeToken(ToastType.ComparisonOperator, tokenLocation, `${firstChar}=` as TokenValues[ToastType.ComparisonOperator])
+					}
+					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
+				case '=':
+					this.advanceOne()
+					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
 
 				default:
 					{
@@ -569,6 +597,9 @@ export class LexerSource {
 						}
 						if (Keywords.has(name)) {
 							return makeToken(ToastType.Keyword, tokenLocation, name)
+						}
+						if (name in BuiltInFunctionSignature) {
+							return makeToken(ToastType.BuiltInFunction, tokenLocation, name)
 						}
 
 

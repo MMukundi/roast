@@ -2,4 +2,4 @@
 { 2 * } double def
 { double call double call } quadruple def
 
-value quadruple call printNum
+value quadruple call stringToInt

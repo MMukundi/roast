@@ -1,7 +1,9 @@
+import { exit } from "process"
 import { CompilerFlags, CompilerOptions, Flags, Options, SourceFile } from "./arguments"
 import { LexerSourceFile } from "./lexer"
 import { debugLogger, errorLogger, noteLogger, warningLogger } from "./loggers"
 import { Compiler } from "./parser"
+
 
 noteLogger.flushLog('toast only partially implemented')
 if (!SourceFile) {
@@ -20,6 +22,10 @@ try {
 		errorLogger.flushLog(`error reading file '${SourceFile}'`)
 	}
 	process.exit()
+}
+if (!compiler.generateAssembly()) {
+	errorLogger.styleLog("Compilation failed.")
+	exit(1)
 }
 compiler.generateAssembly()
 compiler.write("\ttoastExit 0\n")

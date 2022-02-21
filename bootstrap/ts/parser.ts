@@ -6,92 +6,14 @@ import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
 import { Token, SourceLocation, TokenMap, tokenString, TokenValues, ToastType } from "./tokens";
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
-import { toastImplicitConversions, closure, CompileTimeConstant, AllTypes } from "./types"
+import { toastImplicitConversions, closure, CompileTimeConstant, AllTypes, Signature, SpecificTypeConstraint, TokenConstraint, TypeConstraint, NameMap, BuiltInFunctionSignature, TypeNames } from "./types"
 
 const EntryPoint = "_start"
 type TokenProcessor<T> = {
 	[type in ToastType]: (context: T, value: TokenMap[type]) => void
 }
 
-type NameMap = Record<string, TypeConstraint>
-
 const SysCodes = { "Exit": "Exit", "Fork": "Fork", "Write": "Write", "Open": "Open", "Exec": "Exec", "Wait": "Wait4" }
-
-
-abstract class TypeConstraint {
-	abstract getToken(): Token | null
-	abstract getType(): SpecificTypeConstraint
-	abstract canConvertTo(type: ToastType): boolean;
-}
-
-class SpecificTypeConstraint extends TypeConstraint {
-	static specificConstraints: Record<ToastType, SpecificTypeConstraint> = {} as any
-	constructor(public type: ToastType) {
-		super();
-	}
-
-	static for(type: ToastType) {
-		return this.specificConstraints[type]
-	}
-
-	canConvertTo(type: ToastType): boolean {
-		return toastImplicitConversions.get(this.type).has(type)
-	}
-	getToken(): Token | null {
-		return null;
-	}
-	getType(): SpecificTypeConstraint {
-		return this;
-	}
-}
-abstract class ToastTypeConstraint extends TypeConstraint {
-	abstract getType(): SpecificTypeConstraint
-	canConvertTo(type: ToastType): boolean {
-		return this.getType().canConvertTo(type)
-	}
-}
-for (const type of AllTypes) {
-	SpecificTypeConstraint.specificConstraints[type] = new SpecificTypeConstraint(type)
-}
-
-class NameConstraint extends ToastTypeConstraint {
-	constructor(public nameToken: Token, public nameMap: NameMap) { super() }
-
-	getType(): SpecificTypeConstraint {
-		let valueConstraint = this.nameMap[this.nameToken.value]
-		let valueToken = valueConstraint.getToken()
-		console.log("init,", valueToken, this.nameToken, this.nameMap)
-		while (valueToken?.type == ToastType.Name) {
-			valueConstraint = this.nameMap[valueToken.value]
-			valueToken = valueConstraint.getToken()
-			console.log("loop", valueToken)
-		}
-		console.log("end,", valueToken)
-		return valueConstraint.getType()
-	}
-
-	getToken() {
-		let valueConstraint = this.nameMap[this.nameToken.value]
-		let valueToken = valueConstraint.getToken()
-		while (valueToken?.type == ToastType.Name) {
-			valueConstraint = this.nameMap[valueToken.value]
-			valueToken = valueConstraint.getToken()
-		}
-		return valueToken
-	}
-}
-class TokenConstraint extends ToastTypeConstraint {
-	constructor(public token: Token, public nameMap: NameMap) { super() }
-
-	getType(): SpecificTypeConstraint {
-		// return new SpecificTypeConstraint(this.token.type)
-		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.token.type)
-	}
-	getToken(): Token {
-		// return this.token
-		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
-	}
-}
 
 interface Scope {
 	/** The locations where each variable is used */
@@ -118,345 +40,320 @@ function CloseBlock(compiler: Compiler, name?: string) {
 
 const compilerProcessor: TokenProcessor<Compiler> = {
 	[ToastType.Array](compiler, { value: { end, tokens }, location }) {
-		compiler.assemblySource += `\ttoastPushMark\n`
+		compiler.assemblySource += `\ttoastPushMark\n`;
 		// compilerProcessor[ToastType.OpenArray](compiler, { value: null, location, type: ToastType.OpenArray });
-
-		compiler.contextStack.push({ index: 0, tokens })
+		compiler.contextStack.push({ index: 0, tokens });
 		for (const token of tokens) {
-			compiler.writeToken(token)
+			compiler.writeToken(token);
 		}
-		compiler.contextStack.pop()
+		compiler.contextStack.pop();
 
-		compiler.assemblySource += `\ttoastArrayUntilMark\n`
+		compiler.assemblySource += `\ttoastArrayUntilMark\n`;
 		// compilerProcessor[ToastType.CloseArray](compiler, { value: null, location: end, type: ToastType.CloseArray });
 	},
 	[ToastType.CodeBlock](compiler, { value: { tokens, end }, location }) {
-		const nameToken = compiler.lookAhead(1)
-		const defToken = compiler.lookAhead(2)
+		const nameToken = compiler.lookAhead(1);
+		const defToken = compiler.lookAhead(2);
 
-		let name = null
+		let name = null;
 
 		// If this is a variable definition
 		if (defToken && nameToken && nameToken.type === ToastType.Name && defToken.type === ToastType.Keyword && defToken.value == "def") {
-			name = nameToken.value
+			name = nameToken.value;
 			// Consuming the name and def tokens, as they does not need to recompile in this case
-			compiler.currentContext.index += 2
+			compiler.currentContext.index += 2;
 		}
 
-		compiler.contextStack.push({ index: 0, tokens })
-		OpenBlock(compiler, name)
+		compiler.contextStack.push({ index: 0, tokens });
+		OpenBlock(compiler, name);
 		for (; compiler.currentContext.index < tokens.length; compiler.currentContext.index++) {
-			compiler.writeToken(compiler.currentContext.tokens[compiler.currentContext.index])
+			compiler.writeToken(compiler.currentContext.tokens[compiler.currentContext.index]);
 		}
-		CloseBlock(compiler, name)
-		compiler.contextStack.pop()
+		CloseBlock(compiler, name);
+		compiler.contextStack.pop();
+	},
+	[ToastType.BuiltInFunction](compiler, { value: name, location }) {
+
+		switch (name) {
+
+			/// StackOps
+			case 'pop':
+				compiler.assemblySource += `\ttoastPop\n`;
+				return;
+
+			case 'swap':
+				compiler.assemblySource += `\ttoastSwap\n`;
+				return;
+
+			case 'dup':
+				compiler.assemblySource += `\ttoastDup\n`;
+				return;
+
+			case 'roll':
+				compiler.assemblySource += `\t${compiler.functionCall} roll\n`;
+				return;
+
+			//FILE OPS, UNDER DEVELOOMENT
+			case 'close':
+				compiler.assemblySource += `\ttoastStackCloseFile\n`;
+				return;
+			case 'readOpen':
+				compiler.assemblySource += `\ttoastStackReadOpenFile\n`;
+				return;
+			case 'writeOpen':
+				compiler.assemblySource += `\ttoastStackWriteOpenFile\n`;
+				return;
+
+			case 'readFile':
+				compiler.assemblySource += `\ttoastCallFunc read_file\n`;
+				return;
+			case 'readFileTo':
+				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`;
+				return;
+			case 'array':
+				const arraySizeToken = compiler.lookBehind(1);
+				if (arraySizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
+					// TODO: Here, we can create const size arrays, but only if in the outer scope
+					// TODO: Do this in the parse value section
+					compiler.assemblySource += `\ttoastStackCreateArray\n`;
+					return;
+				} else {
+					compiler.assemblySource += `\ttoastStackCreateArray\n`;
+					return;
+				}
+				errorLogger.flushLog("Array size not provided");
+				return;
+
+			case 'buffer':
+				const bufferSizeToken = compiler.lookBehind(1);
+				if (bufferSizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
+					// TODO: Here, we can create const size buffers, but only if in the outer scope
+					// TODO: Do this in the parse value section
+					compiler.assemblySource += `\ttoastStackCreateBuffer\n`;
+					return;
+				} else {
+					compiler.assemblySource += `\ttoastStackCreateBuffer\n`;
+					return;
+				}
+				errorLogger.flushLog("Array size not provided");
+				return;
+
+			case 'length':
+				// TODO: Change array length to index negative 1
+				compiler.assemblySource += `\ttoastStackArrayLength\n`;
+				return;
+
+
+			/// IO Ops
+			case 'print':
+				compiler.assemblySource += `\ttoastStackPrint\n`;
+				return;
+
+
+			case 'fprint':
+				compiler.assemblySource += `\tpop rdi\t\ntoastStackPrint rdi\n`;
+				return;
+
+			case 'printf':
+				compiler.assemblySource += `\t${compiler.functionCall} print_f\n`;
+				return;
+			case 'sprintf':
+				compiler.assemblySource += `\t${compiler.functionCall} sprint_f\n`;
+				return;
+			case 'fprintf':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_f\n`;
+				return;
+
+			/// IO Ops
+			case 'input':
+				compiler.assemblySource += `\t${compiler.functionCall} input\n`;
+				return;
+			case 'filePrintNum':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_num\n`;
+				return;
+			case 'printNum':
+				compiler.assemblySource += `\t${compiler.functionCall} print_num\n`;
+				return;
+			case 'filePrintNumBase':
+				compiler.assemblySource += `\t${compiler.functionCall} file_print_num_base\n`;
+				return;
+			case 'printNumBase':
+				compiler.assemblySource += `\t${compiler.functionCall} print_num_base\n`;
+				return;
+
+
+			case 'strEq':
+				compiler.assemblySource += `\t${compiler.functionCall} str_eq\n`;
+				return;
+			case 'strLen':
+				compiler.assemblySource += `\t${compiler.functionCall} str_len\n`;
+				return;
+			case 'copy':
+				compiler.assemblySource += `\t${compiler.functionCall} copy\n`;
+				return;
+			case 'index':
+				compiler.assemblySource += `\ttoastIndex\n`;
+				return;
+
+
+			// New commands
+			case 'strCopy':
+				compiler.assemblySource += `\ttoastCallFunc strcopy\n`;
+				return;
+			case 'memCopy':
+				compiler.assemblySource += `\ttoastCallFunc memcopy\n`;
+				return;
+
+			case 'memCopyByte':
+				compiler.assemblySource += `\ttoastCallFunc memcopy_byte\n`;
+				return;
+
+			case 'exit':
+				compiler.assemblySource += `\tpop r8\n\ttoastExit r8\n`;
+				return;
+
+			case 'getPtr':
+				// ... ptr index get
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8*8]\n\tpush r8\n`;
+				return;
+
+			case 'getBytePtr':
+				// ... ptr index getByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8]\n\tpush r8\n`;
+				return;
+
+			case 'get':
+				// ... ptr index get
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tmov r8, [r9+r8*8]\n\tpush r8\n`;
+				return;
+			case 'set':
+				// ... val ptr index set
+				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov [r9+r8*8], r10\n`;
+				return;
+
+			case 'getByte':
+				// ... ptr index getByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\n\txor r10, r10\n\tmov r10b, byte[r9+r8]\n\tpush r10\n`;
+				return;
+			case 'setByte':
+				// ... val ptr index setByte
+				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov byte[r9+r8], r10b\n`;
+				return;
+
+			case 'read':
+				compiler.assemblySource += `\tpop r8\n\tmov r8, [r8]\n\tpush r8\n`;
+				return;
+			case 'write':
+				// ... val ptr write
+				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov [r8], r9\n`;
+				return;
+
+			case 'readByte':
+				compiler.assemblySource += `\tpop r9\n\txor r8, r8\n\tmov r8b, byte[r9]\n\tpush r8\n`;
+				return;
+			case 'writeByte':
+				// ... val ptr set
+				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov byte[r8], r9b\n`;
+				return;
+
+			case 'intToString':
+				compiler.assemblySource += `\t${compiler.functionCall} itoa\n`;
+				return;
+			case 'stringToInt':
+				compiler.assemblySource += `\t${compiler.functionCall} atoi\n`;
+				return;
+
+			case 'popN':
+				compiler.assemblySource += `\tpop r8\n\tlea rsp, [rsp+AddressBytes*r8]\n`;
+				return;
+		}
 	},
 	[ToastType.Name](compiler, { value: name, location }) {
-		const SysCodeString = 'Syscode'
-		const SysCallString = 'Syscall'
+		const SysCodeString = 'Syscode';
+		const SysCallString = 'Syscall';
 
 		// BuiltInConstants
 		if (CompileTimeConstant.getConstant(name)) {
-			compiler.assemblySource += `\tmov r8, ${CompileTimeConstant.getConstant(name).assemblyValue}\n\tpush r8\n`
-			return
+			compiler.assemblySource += `\tmov r8, ${CompileTimeConstant.getConstant(name).assemblyValue}\n\tpush r8\n`;
+			return;
 		}
 
 		// Raw syscalls
 		let SyscallCount;
 		if (name.startsWith(SysCallString.toLocaleLowerCase()) && !isNaN(parseInt(SyscallCount = name.substring(SysCallString.length)))) {
-			compiler.assemblySource += `\ttoastStackSyscall ${SyscallCount}\n`
+			compiler.assemblySource += `\ttoastStackSyscall ${SyscallCount}\n`;
 			// compiler.assemblySource += `\tpop rax\n\tsyscall\n\tpush rax\n`
 			return;
 		}
 
-		switch (name) {
 
-			case '>=':
-				compiler.assemblySource += `\ttoastStackCompare ge\n`
-				return;
-			case '<=':
-				compiler.assemblySource += `\ttoastStackCompare le\n`
-				return;
-
-			case '>':
-				compiler.assemblySource += `\ttoastStackCompare g\n`
-				return;
-			case '<':
-				compiler.assemblySource += `\ttoastStackCompare l\n`
-				return;
-			case '=':
-				compiler.assemblySource += `\ttoastStackCompare e\n`
-				return;
-
-			case '!=':
-				compiler.assemblySource += `\ttoastStackCompare ne\n`
-				return;
-
-			case '!':
-				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
-				return;
-
-			/// StackOps
-			case 'pop':
-				compiler.assemblySource += `\ttoastPop\n`
-				return
-
-			case 'swap':
-				compiler.assemblySource += `\ttoastSwap\n`
-				return
-
-			case 'dup':
-				compiler.assemblySource += `\ttoastDup\n`
-				return
-
-			case 'roll':
-				compiler.assemblySource += `\t${compiler.functionCall} roll\n`
-				return
-
-			//FILE OPS, UNDER DEVELOOMENT
-			case 'close':
-				compiler.assemblySource += `\ttoastStackCloseFile\n`
-				return;
-			case 'readOpen':
-				compiler.assemblySource += `\ttoastStackReadOpenFile\n`
-				return;
-			case 'writeOpen':
-				compiler.assemblySource += `\ttoastStackWriteOpenFile\n`
-				return;
-
-			case 'readFile':
-				compiler.assemblySource += `\ttoastCallFunc read_file\n`
-				return;
-			case 'readFileTo':
-				compiler.assemblySource += `\ttoastCallFunc read_file_to\n`
-				return;
-			case 'array':
-				const arraySizeToken = compiler.lookBehind(1)
-				if (arraySizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
-					// TODO: Here, we can create const size arrays, but only if in the outer scope
-					// TODO: Do this in the parse value section
-					compiler.assemblySource += `\ttoastStackCreateArray\n`
-					return
-				} else {
-					compiler.assemblySource += `\ttoastStackCreateArray\n`
-					return
-				}
-				errorLogger.flushLog("Array size not provided")
-				return;
-
-			case 'buffer':
-				const bufferSizeToken = compiler.lookBehind(1)
-				if (bufferSizeToken?.type == ToastType.Integer && compiler.scopeDepth == 0) {
-					// TODO: Here, we can create const size buffers, but only if in the outer scope
-					// TODO: Do this in the parse value section
-					compiler.assemblySource += `\ttoastStackCreateBuffer\n`
-					return
-				} else {
-					compiler.assemblySource += `\ttoastStackCreateBuffer\n`
-					return
-				}
-				errorLogger.flushLog("Array size not provided")
-				return;
-
-			case 'length':
-				// TODO: Change array length to index negative 1
-				compiler.assemblySource += `\ttoastStackArrayLength\n`
-				return;
-
-
-			/// IO Ops
-
-			case 'print':
-				compiler.assemblySource += `\ttoastStackPrint\n`
-				return;
-
-
-			case 'fprint':
-				compiler.assemblySource += `\tpop rdi\t\ntoastStackPrint rdi\n`
-				return;
-
-			case 'printf':
-				compiler.assemblySource += `\t${compiler.functionCall} print_f\n`
-				return;
-			case 'sprintf':
-				compiler.assemblySource += `\t${compiler.functionCall} sprint_f\n`
-				return;
-			case 'fprintf':
-				compiler.assemblySource += `\t${compiler.functionCall} file_print_f\n`
-				return;
-
-			/// IO Ops
-			case 'input':
-				compiler.assemblySource += `\t${compiler.functionCall} input\n`
-				return
-			case 'filePrintNum':
-				compiler.assemblySource += `\t${compiler.functionCall} file_print_num\n`
-				return
-			case 'printNum':
-				compiler.assemblySource += `\t${compiler.functionCall} print_num\n`
-				return
-			case 'filePrintNumBase':
-				compiler.assemblySource += `\t${compiler.functionCall} file_print_num_base\n`
-				return
-			case 'printNumBase':
-				compiler.assemblySource += `\t${compiler.functionCall} print_num_base\n`
-				return
-
-
-			case 'strEq':
-				compiler.assemblySource += `\t${compiler.functionCall} str_eq\n`
-				return
-			case 'strLen':
-				compiler.assemblySource += `\t${compiler.functionCall} str_len\n`
-				return
-			case 'copy':
-				compiler.assemblySource += `\t${compiler.functionCall} copy\n`
-				return;
-			case 'index':
-				compiler.assemblySource += `\ttoastIndex\n`
-				return;
-			case 'redef':
-				const redefineNameToken = compiler.lookBehind(1)
-				if (redefineNameToken.type === ToastType.Name) {
-					compiler.assemblySource += `\ttoastRedefineVariable ${redefineNameToken.value}\n`
-				} else {
-					errorLogger.flushLog("Missing name token to define variable")
-				}
-				return;
-
-			// New commands
-			case 'strCopy':
-				compiler.assemblySource += `\ttoastCallFunc strcopy\n`
-				return;
-			case 'memCopy':
-				compiler.assemblySource += `\ttoastCallFunc memcopy\n`
-				return;
-
-			case 'memCopyByte':
-				compiler.assemblySource += `\ttoastCallFunc memcopy_byte\n`
-				return;
-
-			case 'exit':
-				compiler.assemblySource += `\tpop r8\n\ttoastExit r8\n`
-				return;
-
-			case 'getPtr':
-				// ... ptr index get
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8*8]\n\tpush r8\n`
-				return;
-
-			case 'getBytePtr':
-				// ... ptr index getByte
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tlea r8, [r9+r8]\n\tpush r8\n`
-				return;
-
-			case 'get':
-				// ... ptr index get
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\tmov r8, [r9+r8*8]\n\tpush r8\n`
-				return;
-			case 'set':
-				// ... val ptr index set
-				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov [r9+r8*8], r10\n`
-				return;
-
-			case 'getByte':
-				// ... ptr index getByte
-				compiler.assemblySource += `\tpop r8\n\tpop r9\n\txor r10, r10\n\tmov r10b, byte[r9+r8]\n\tpush r10\n`
-				return;
-			case 'setByte':
-				// ... val ptr index setByte
-				compiler.assemblySource += `\tpop r8\n\tpop r9\t\npop r10\n\tmov byte[r9+r8], r10b\n`
-				return;
-
-			case 'read':
-				compiler.assemblySource += `\tpop r8\n\tmov r8, [r8]\n\tpush r8\n`
-				return;
-			case 'write':
-				// ... val ptr write
-				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov [r8], r9\n`
-				return;
-
-			case 'readByte':
-				compiler.assemblySource += `\tpop r9\n\txor r8, r8\n\tmov r8b, byte[r9]\n\tpush r8\n`
-				return;
-			case 'writeByte':
-				// ... val ptr set
-				compiler.assemblySource += `\tpop r8; ptr\n\tpop r9; val\n\tmov byte[r8], r9b\n`
-				return;
-
-			case 'intToString':
-				compiler.assemblySource += `\t${compiler.functionCall} itoa\n`
-				return;
-			case 'stringToInt':
-				compiler.assemblySource += `\t${compiler.functionCall} atoi\n`
-				return;
-
-			case 'popN':
-				compiler.assemblySource += `\tpop r8\n\tlea rsp, [rsp+AddressBytes*r8]\n`
-				return;
-		}
-
-		const defToken = compiler.lookAhead(1)
-		compiler.assemblySource += `\tlea r8, [${name}]\n`
+		const defToken = compiler.lookAhead(1);
+		compiler.assemblySource += `\tlea r8, [${name}]\n`;
 		if (defToken && !(defToken.type === ToastType.Keyword && (defToken.value === "def" || defToken.value === "redef")) && compiler.source.functionDefinitions[name] == undefined) {
-			compiler.assemblySource += `\tmov r8, [r8]\n`
+			compiler.assemblySource += `\tmov r8, [r8]\n`;
 		}
-		compiler.assemblySource += `\tpush r8\n`
+		compiler.assemblySource += `\tpush r8\n`;
 
 
 		// compiler.assemblySource += `\ttoastDefineString \`${unescapeString(name)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\t${compiler.functionCall} find_var\n`
-
 		// // TODO: Remove when we figure out what to do with that boolean
 		// // compiler.assemblySource += `\tpop r8; Bool\n\tpop r9 ; Value\n\tcmp r8, 0\n\t;; -- Only dereference defined variables, not variable names ;; \n\tcmove r9, [r9 + StoredVariable.value]\n\tpush r9\n`
 		// compiler.assemblySource += `\tpop r8; Bool\n`
-
 		//#endregion DEBUG
 		// compiler.errorHere(`compiling Name tokens(${name}) not yet implemented`, location)
 	},
 	[ToastType.String](compiler, { value: str }) {
-		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\tmov r8, toastCurrentStringLength\n\tpush r8\n`
+		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\tmov r8, toastCurrentStringLength\n\tpush r8\n`;
 	},
 	[ToastType.CString](compiler, { value: str }) {
-		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n`
+		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n`;
 	},
 	[ToastType.Integer](compiler, { value }) {
 		// compiler.errorHere("compiling Value tokens not yet implemented")
-		compiler.assemblySource += `\tpush ${value}\n`
+		compiler.assemblySource += `\tpush ${value}\n`;
 		// compiler.textSection += `\tmov r8, 200\n\tpush r8\n`
 	},
 
 	// Create actual compilations for new types
-	[ToastType.Boolean](compiler, { value }) { `\tpush ${value ? 1 : 0}\n` },
+	[ToastType.Boolean](compiler, { value }) { `\tpush ${value ? 1 : 0}\n`; },
 	[ToastType.Any](compiler) { },
 	[ToastType.Pointer](compiler) { },
 	[ToastType.FunctionPointer](compiler) { },
 	[ToastType.MemoryRegion](compiler) { },
 	[ToastType.Syscode](compiler) { },
 	[ToastType.Call](compiler) {
-		compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`
+		compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`;
 		return;
 	},
 
 	[ToastType.Keyword](compiler, { value }) {
 		switch (value) {
 			case 'def':
-				const nameToken = compiler.lookBehind(1)
+				const nameToken = compiler.lookBehind(1);
 				if (nameToken.type === ToastType.Name) {
-					const valueToken = compiler.lookBehind(2)
+					const valueToken = compiler.lookBehind(2);
 					if ((valueToken.type === ToastType.CodeBlock || valueToken.type === ToastType.Array) && valueToken.value.name != null) {
-						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`
+						compiler.assemblySource += `\ttoastRedefineVariable ${nameToken.value}\n`;
 					} else {
-						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`
+						compiler.assemblySource += `\ttoastDefineVariable ${nameToken.value}\n`;
 					}
 				} else {
-					errorLogger.flushLog("Missing name token to define variable")
+					errorLogger.flushLog("Missing name token to define variable");
+				}
+				return;
+			case 'redef':
+				const redefineNameToken = compiler.lookBehind(1);
+				if (redefineNameToken.type === ToastType.Name) {
+					compiler.assemblySource += `\ttoastRedefineVariable ${redefineNameToken.value}\n`;
+				} else {
+					errorLogger.flushLog("Missing name token to define variable");
 				}
 				return;
 			case 'ifelse':
-				compiler.assemblySource += `\ttoastIfElse ${compiler.functionCall}\n`
+				compiler.assemblySource += `\ttoastIfElse ${compiler.functionCall}\n`;
 				return;
 			case 'if':
-				compiler.assemblySource += `\ttoastIf ${compiler.functionCall}\n`
+				compiler.assemblySource += `\ttoastIf ${compiler.functionCall}\n`;
 				return;
 		}
 	},
@@ -464,19 +361,19 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		switch (value) {
 			/// Math
 			case '+':
-				compiler.assemblySource += `\ttoastStackCompute add\n`
+				compiler.assemblySource += `\ttoastStackCompute add\n`;
 				return;
 			case '-':
-				compiler.assemblySource += `\ttoastStackCompute sub\n`
+				compiler.assemblySource += `\ttoastStackCompute sub\n`;
 				return;
 			case '*':
-				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`
+				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`;
 				return;
 			case '/':
-				compiler.assemblySource += `\ttoastStackRAXCompute idiv\n`
+				compiler.assemblySource += `\ttoastStackRAXCompute idiv\n`;
 				return;
 			case '%':
-				compiler.assemblySource += `\ttoastStackRAXCompute idiv, rdx\n`
+				compiler.assemblySource += `\ttoastStackRAXCompute idiv, rdx\n`;
 				return;
 		}
 	},
@@ -484,32 +381,32 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		switch (value) {
 			/// Bits
 			case '^':
-				compiler.assemblySource += `\ttoastStackCompute xor\n`
+				compiler.assemblySource += `\ttoastStackCompute xor\n`;
 				return;
 			case '|':
-				compiler.assemblySource += `\ttoastStackCompute or\n`
+				compiler.assemblySource += `\ttoastStackCompute or\n`;
 				return;
 			case '&':
-				compiler.assemblySource += `\ttoastStackCompute and\n`
+				compiler.assemblySource += `\ttoastStackCompute and\n`;
 				return;
 			case '~':
-				compiler.assemblySource += `\toastStackComputeOne not\n`
+				compiler.assemblySource += `\toastStackComputeOne not\n`;
 				return;
 		}
 	},
 	[ToastType.LogicOperator](compiler, { value }) {
 		switch (value) {
 			case '||':
-				compiler.assemblySource += `\ttoastStackCompute add\n`
+				compiler.assemblySource += `\ttoastStackCompute add\n`;
 				// compiler.assemblySource += `\ttoastStackCompute or\n`
 				return;
 			case '&&':
-				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`
+				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`;
 				// compiler.assemblySource += `\ttoastStackCompute and\n`
 				return;
 			// Merge the nots
 			case '!':
-				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
+				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`;
 				return;
 		}
 	},
@@ -517,13 +414,39 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		switch (value) {
 			/// Bits
 			case '<<':
-				compiler.assemblySource += `\ttoastStackLogic shl\n`
+				compiler.assemblySource += `\ttoastStackLogic shl\n`;
 				return;
 			case '>>':
-				compiler.assemblySource += `\ttoastStackLogic shr\n`
+				compiler.assemblySource += `\ttoastStackLogic shr\n`;
 				return;
 		}
 	},
+	[ToastType.FileDescriptor](compiler) { },
+	[ToastType.ComparisonOperator](compiler, { value }) {
+		switch (value) {
+			case '>=':
+				compiler.assemblySource += `\ttoastStackCompare ge\n`;
+				return;
+			case '<=':
+				compiler.assemblySource += `\ttoastStackCompare le\n`;
+				return;
+
+			case '>':
+				compiler.assemblySource += `\ttoastStackCompare g\n`;
+				return;
+			case '<':
+				compiler.assemblySource += `\ttoastStackCompare l\n`;
+				return;
+			case '=':
+				compiler.assemblySource += `\ttoastStackCompare e\n`;
+				return;
+
+			case '!=':
+				compiler.assemblySource += `\ttoastStackCompare ne\n`;
+				return;
+
+		}
+	}
 }
 export class Compiler {
 	static fromSource(sourcePath: string): Compiler {
@@ -594,28 +517,37 @@ export class Compiler {
 		return this.contextStack[this.contextStack.length - 1]
 	}
 
-	static expect(typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[], typesToExpect: SpecificTypeConstraint[]) {
+	static expect(typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[], typesToExpect: SpecificTypeConstraint[]): string | null {
 		for (const expectedType of typesToExpect) {
-			if (typeStack.length && typeStack[typeStack.length - 1].canConvertTo(expectedType.type)) {
-				console.log("match!")
-				typeStack.pop()
+			if (typeStack.length) {
+				if (typeStack[typeStack.length - 1].canConvertTo(expectedType.type)) {
+					typeStack.pop()
+				} else {
+					return `Cannot convert ${TypeNames[typeStack[typeStack.length - 1].getType()?.type]} to ${TypeNames[expectedType.type]}`
+				}
 			} else {
-				console.log("no match :(")
 				inputsNeeded.push(expectedType)
 			}
 		}
+		return null
+	}
+	static apply(signature: Signature, typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[]): string | null {
+		const expect = Compiler.expect(typeStack, inputsNeeded, signature.inputs)
+		typeStack.push(...signature.outputs)
+		return expect
 	}
 
-	static typeCheck(tokens: Token[], nameMap: NameMap, blockTypes: Record<number, { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }>): { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] } {
-		// console.log(tokens)
-		console.log(">>")
+	static typeCheck(tokens: Token[], nameMap: NameMap, blockTypes: Record<number, Signature>): Signature & {
+		errors: string[]
+	} {
 		const inputTypesNeeded: TypeConstraint[] = []
 		const typeStack: TypeConstraint[] = []
+
+		let errors: string[] = []
 
 		let lastToken = null
 		let lastLastToken = null
 		for (let token of tokens) {
-			console.log(typeStack, nameMap, blockTypes)
 			if (lastToken?.type === ToastType.Name) {
 				const nameToken: Token = lastToken;
 				if (token && token.type == ToastType.Keyword && token.value == "def") {
@@ -624,7 +556,7 @@ export class Compiler {
 					const valueType = typeStack.pop()
 
 					if (valueType == undefined) {
-						console.log("No definition")
+						errors.push("Definition with no value")
 					} else {
 						nameMap[nameToken.value] = valueType
 					}
@@ -642,54 +574,65 @@ export class Compiler {
 					const functionToken = valueType.getToken()
 
 					if (functionToken.type == ToastType.CodeBlock) {
-						console.log("PRE", typeStack, inputTypesNeeded)
-
-						const functionData = blockTypes[functionToken.value.index]
-						Compiler.expect(typeStack, inputTypesNeeded, functionData.inputs)
-						typeStack.push(...functionData.outputs)
-
-						console.log("POST", typeStack, inputTypesNeeded, functionData)
-
-						// console.log("Calling function", blockTypes[functionToken.value.index], functionToken.value.index)
-						// console.log(nameMap["double"].getToken().value.index)
-						// console.log(functionToken, blockTypes[functionToken.value.index])
+						const functionSignature = blockTypes[functionToken.value.index]
+						const functionCallError = Compiler.apply(functionSignature, typeStack, inputTypesNeeded)
+						if (functionCallError) {
+							errors.push(functionCallError)
+						}
 					} else {
-						// console.log(functionToken)
-						console.log("Error; trying to call a non-function")
+						errors.push(`Cannot call a ${functionToken.type}`)
 					}
 
+					break;
+				case ToastType.BuiltInFunction:
+					const builtInError = Compiler.apply(BuiltInFunctionSignature[token.value], typeStack, inputTypesNeeded)
+					if (builtInError) {
+						errors.push(builtInError)
+					}
+					// typeStack.push(new TokenConstraint(token, nameMap))
 					break;
 				case ToastType.Name:
 					typeStack.push(new TokenConstraint(token, nameMap))
 					break;
 				case ToastType.CodeBlock:
 					if (!blockTypes[token.value.index]) {
-						// console.log("PreBlock:", typeStack, nameMap)
 						const type = this.typeCheck(token.value.tokens, nameMap, blockTypes);
 						blockTypes[token.value.index] = type
-						// console.log("PostBlock:", token.value.index, typeStack, nameMap, type, blockTypes)
 					}
 					typeStack.push(new TokenConstraint(token, nameMap))
 					break;
 				case ToastType.MathOperator:
-					Compiler.expect(typeStack, inputTypesNeeded, [SpecificTypeConstraint.for(ToastType.Integer), SpecificTypeConstraint.for(ToastType.Integer)])
-					typeStack.push(SpecificTypeConstraint.for(ToastType.Integer))
+					const operatorError = Compiler.apply({
+						inputs: [SpecificTypeConstraint.for(ToastType.Integer), SpecificTypeConstraint.for(ToastType.Integer)],
+						outputs: [SpecificTypeConstraint.for(ToastType.Integer)]
+					}, typeStack, inputTypesNeeded)
+					if (operatorError) {
+						errors.push(operatorError)
+					}
 					break;
 				default:
 					typeStack.push(new TokenConstraint(token, nameMap))
 					break;
 			}
 		}
-		console.log("<<")
 		return {
-			inputs: inputTypesNeeded,
-			outputs: typeStack
-		} as any
+			inputs: inputTypesNeeded as SpecificTypeConstraint[],
+			outputs: typeStack as SpecificTypeConstraint[],
+			errors
+		}
 	}
 
-	generateAssembly() {
+	generateAssembly(): boolean {
 		const tokens = this.source.getAllTokens()
-		console.log(Compiler.typeCheck(tokens, {}, {}))
+		const typeResults = (Compiler.typeCheck(tokens, {}, {}))
+
+		if (typeResults.errors.length) {
+			for (const error of typeResults.errors) {
+				errorLogger.styleLog(error)
+			}
+			errorLogger.flush()
+			return false
+		}
 
 		this.contextStack.push({ index: 0, tokens })
 		while (this.contextStack.length) {
@@ -702,6 +645,7 @@ export class Compiler {
 				this.currentContext.index++
 			}
 		}
+		return true
 	}
 
 	lookAhead(index = 1) {

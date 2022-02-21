@@ -64,8 +64,17 @@ export enum ToastType {
 	/** &&, ||, ! */
 	LogicOperator,
 
+	/** >=, <=, >, <, =, != */
+	ComparisonOperator,
+
 	/** call */
 	Call,
+
+	/** 1,2,3 */
+	FileDescriptor,
+
+	/** pop,swap,... */
+	BuiltInFunction,
 }
 
 /** A list of tokens */
@@ -82,6 +91,9 @@ export type TokenValues = {
 	[ToastType.ShiftOperator]: '>>' | '<<'
 	[ToastType.BitwiseOperator]: '&' | '|' | '~' | '^'
 	[ToastType.LogicOperator]: '&&' | '||' | '!',
+	[ToastType.FileDescriptor]: number,
+	[ToastType.ComparisonOperator]: '>=' | '<=' | '>' | '<' | '=' | '!='
+	[ToastType.BuiltInFunction]: string
 	[ToastType.Call]: undefined,
 
 
