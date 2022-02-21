@@ -79,44 +79,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		}
 
 		switch (name) {
-			/// Bits
-			case '<<':
-				compiler.assemblySource += `\ttoastStackLogic shl\n`
-				return;
-			case '>>':
-				compiler.assemblySource += `\ttoastStackLogic shr\n`
-				return;
-			case '^':
-				compiler.assemblySource += `\ttoastStackCompute xor\n`
-				return;
-			case '|':
-			case '||':
-				compiler.assemblySource += `\ttoastStackCompute or\n`
-				return;
-			case '&':
-			case '&&':
-				compiler.assemblySource += `\ttoastStackCompute and\n`
-				return;
-			case '~':
-				compiler.assemblySource += `\toastStackComputeOne not\n`
-				return;
-
-			/// Math
-			case '+':
-				compiler.assemblySource += `\ttoastStackCompute add\n`
-				return;
-			case '-':
-				compiler.assemblySource += `\ttoastStackCompute sub\n`
-				return;
-			case '*':
-				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`
-				return;
-			case '/':
-				compiler.assemblySource += `\ttoastStackRAXCompute idiv\n`
-				return;
-			case '%':
-				compiler.assemblySource += `\ttoastStackRAXCompute idiv, rdx\n`
-				return;
 
 			case '>=':
 				compiler.assemblySource += `\ttoastStackCompare ge\n`
@@ -213,7 +175,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 			/// IO Ops
 
-
 			case 'print':
 				compiler.assemblySource += `\ttoastStackPrint\n`
 				return;
@@ -254,12 +215,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`
 				return;
 
-			case 'ifelse':
-				compiler.assemblySource += `\ttoastIfElse ${compiler.functionCall}\n`
-				return;
-			case 'if':
-				compiler.assemblySource += `\ttoastIf ${compiler.functionCall}\n`
-				return;
+
 			case 'strEq':
 				compiler.assemblySource += `\t${compiler.functionCall} str_eq\n`
 				return
@@ -405,10 +361,78 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 					errorLogger.flushLog("Missing name token to define variable")
 				}
 				return;
+			case 'ifelse':
+				compiler.assemblySource += `\ttoastIfElse ${compiler.functionCall}\n`
+				return;
+			case 'if':
+				compiler.assemblySource += `\ttoastIf ${compiler.functionCall}\n`
+				return;
 		}
 	},
-	[ToastType.MathOperator](compiler) { },
-	[ToastType.BitwiseOperator](compiler) { },
+	[ToastType.MathOperator](compiler, { value }) {
+		switch (value) {
+			/// Math
+			case '+':
+				compiler.assemblySource += `\ttoastStackCompute add\n`
+				return;
+			case '-':
+				compiler.assemblySource += `\ttoastStackCompute sub\n`
+				return;
+			case '*':
+				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`
+				return;
+			case '/':
+				compiler.assemblySource += `\ttoastStackRAXCompute idiv\n`
+				return;
+			case '%':
+				compiler.assemblySource += `\ttoastStackRAXCompute idiv, rdx\n`
+				return;
+		}
+	},
+	[ToastType.BitwiseOperator](compiler, { value }) {
+		switch (value) {
+			/// Bits
+			case '^':
+				compiler.assemblySource += `\ttoastStackCompute xor\n`
+				return;
+			case '|':
+				compiler.assemblySource += `\ttoastStackCompute or\n`
+				return;
+			case '&':
+				compiler.assemblySource += `\ttoastStackCompute and\n`
+				return;
+			case '~':
+				compiler.assemblySource += `\toastStackComputeOne not\n`
+				return;
+		}
+	},
+	[ToastType.LogicOperator](compiler, { value }) {
+		switch (value) {
+			case '||':
+				compiler.assemblySource += `\ttoastStackCompute add\n`
+				// compiler.assemblySource += `\ttoastStackCompute or\n`
+				return;
+			case '&&':
+				compiler.assemblySource += `\ttoastStackRAXCompute imul\n`
+				// compiler.assemblySource += `\ttoastStackCompute and\n`
+				return;
+			// Merge the nots
+			case '!':
+				compiler.assemblySource += `\tpush 0\n\ttoastStackCompare e\n`
+				return;
+		}
+	},
+	[ToastType.ShiftOperator](compiler, { value }) {
+		switch (value) {
+			/// Bits
+			case '<<':
+				compiler.assemblySource += `\ttoastStackLogic shl\n`
+				return;
+			case '>>':
+				compiler.assemblySource += `\ttoastStackLogic shr\n`
+				return;
+		}
+	},
 }
 export class Compiler {
 	static fromSource(sourcePath: string): Compiler {

@@ -158,34 +158,7 @@ HashTableProperties 8 * HashTableBytes def
 	} ifelse
 } hashTableGet def
 { # hashTable key
-	dup # hashTable key key
-	# 3 copy "Pre has: chain[%d],key[%s],table[%d]\n"c printf
-	2 index HashTableHashFunction get # hashTable key key hashFunction
-	call # hashTable key keyHash
-	2 index HashTableCapacity get # hashTable key keyHash hashTableCapacity
-	% # hashTable key keyHashIndex
-	2 index HashTableData get # hashTable key keyHashIndex hashData
-	swap get # hashTable key chain
-	# 3 copy "Pre has: chain[%d],key[%c],table[%d]\n"c printf
-	dup
-	{
-		3 popN
-		0
-	}
-	{
-		2 index HashTableEqualsFunction get
-		1 index { # hashTable value key chain eqFunc [linkedListFindSkip values] nodeData
-			read # hashTable value key chain eqFunc [linkedListFindSkip values] otherKey
-			linkedListFindSkip 1 + index  # hashTable value key chain eqFunc [linkedListFindSkip values] otherKey eqFunc
-			linkedListFindSkip 4 + index swap # hashTable value key chain eqFunc [linkedListFindSkip values] otherKey thisKey eqFunc
-			call
-		} linkedListFindFirst call
-		0 !=
-
-		# hashTable value key chain eqFunc bool
-		5 1 roll
-		4 popN
-	} ifelse
+	hashTableGet call 0 !=
 } hashTableHas def
 
 { 1 getPtr } hashTableNodeData def

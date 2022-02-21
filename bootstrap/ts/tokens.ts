@@ -52,11 +52,17 @@ export enum ToastType {
 	/** for, if, else, ... */
 	Keyword,
 
+	/** >>, << */
+	ShiftOperator,
+
 	/** +, -, *, /, % */
 	MathOperator,
 
-	/** &, |, ! */
+	/** &, |, ~ */
 	BitwiseOperator,
+
+	/** &&, ||, ! */
+	LogicOperator,
 }
 
 /** A list of tokens */
@@ -69,8 +75,10 @@ export type TokenValues = {
 	[ToastType.FunctionPointer]: any
 	[ToastType.MemoryRegion]: any
 	[ToastType.Syscode]: any
-	[ToastType.MathOperator]: any
-	[ToastType.BitwiseOperator]: any
+	[ToastType.MathOperator]: '+' | '-' | '*' | '/' | '%'
+	[ToastType.ShiftOperator]: '>>' | '<<'
+	[ToastType.BitwiseOperator]: '&' | '|' | '~' | '^'
+	[ToastType.LogicOperator]: '&&' | '||' | '!'
 
 	[ToastType.Keyword]: string
 

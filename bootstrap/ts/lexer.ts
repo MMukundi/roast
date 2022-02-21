@@ -3,7 +3,7 @@ import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
-import { makeToken, SourceLocation, Token, tokenString, ToastType } from "./tokens"
+import { makeToken, SourceLocation, Token, tokenString, ToastType, TokenValues } from "./tokens"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */
@@ -36,6 +36,12 @@ const DelimiterEnds = {
 
 /** Special characters which should not be included in the variable names */
 const ToastDelimiters = new Set([BlockStart, BlockEnd, ArrayStart, ArrayEnd])
+
+const MathOperators: Set<string> = new Set(['+', '-', '*', '/', '%'] as const)
+const ShiftOperators: Set<string> = new Set(['>>', '<<'])
+const BitwiseOperators: Set<string> = new Set(['&', '|', '~', '^'])
+const LogicOperators: Set<string> = new Set(['&&', '||', '!'])
+const Keywords: Set<string> = new Set(['def', 'if', 'ifelse'])
 
 /** A token scope containing all past and future tokens which have been parsed */
 interface Scope {
@@ -414,7 +420,6 @@ export class LexerSource {
 		// Testing for unary negation
 		let firstChar = currentChar
 		if (currentChar == NegativeSign || currentChar == IncludeSign) {
-			firstChar = currentChar
 			this.advanceOne()
 			currentChar = this.current()
 		}
@@ -462,7 +467,7 @@ export class LexerSource {
 				return
 			}
 			// throw ("Invalid preprocessor command")
-			return makeToken(ToastType.Name, tokenLocation, '%')
+			return makeToken(ToastType.MathOperator, tokenLocation, '%')
 		}
 		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
@@ -498,25 +503,62 @@ export class LexerSource {
 			}
 			return makeToken(ToastType.Integer, tokenLocation, value)
 		} else {
-			let name: string = firstChar == "-" ? "-" : ""
+			switch (firstChar) {
+				case '+': case '-': case '/': case '*': case '%':
+					if (firstChar != NegativeSign && firstChar != IncludeSign) {
+						this.advanceOne()
+					}
+					return makeToken(ToastType.MathOperator, tokenLocation, firstChar as TokenValues[ToastType.MathOperator])
+				case '!':
+					this.advanceOne()
+					if (this.current() == "=") {
+						this.advanceOne()
+						return makeToken(ToastType.Name, tokenLocation, "!=")
+					}
+					return makeToken(ToastType.LogicOperator, tokenLocation, `!`)
+				case '&': case '|':
+					this.advanceOne()
+					currentChar = this.current()
+					if (currentChar == firstChar) {
+						this.advanceOne()
+						return makeToken(ToastType.LogicOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.LogicOperator])
+					}
+				case '~':
+				case '^':
+					this.advanceOne()
+					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
 
-			name += this.advanceWhile(() => {
-				const current = this.current()
-				if (!(isWhitespace(current) || ToastDelimiters.has(current))) {
-					return true;
-				}
-				return false
-			})
-			const charAfter = this.current()
-			if (charAfter && isWhitespace(charAfter)) {
-				this.advanceOne()
+				case '>': case '<':
+					this.advanceOne()
+					currentChar = this.current()
+					if (currentChar == firstChar) {
+						this.advanceOne()
+						return makeToken(ToastType.ShiftOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.ShiftOperator])
+					}
+					return makeToken(ToastType.Name, tokenLocation, firstChar)
+
+				default:
+					{
+
+						const name = this.advanceWhile(() => {
+							const current = this.current()
+							if (!(isWhitespace(current) || ToastDelimiters.has(current))) {
+								return true;
+							}
+							return false
+						})
+						const charAfter = this.current()
+						if (charAfter && isWhitespace(charAfter)) {
+							this.advanceOne()
+						}
+
+						if (Keywords.has(name)) {
+							return makeToken(ToastType.Keyword, tokenLocation, name)
+						}
+
+						return makeToken(ToastType.Name, tokenLocation, name)
+					}
 			}
-
-			if (name == "def") {
-				return makeToken(ToastType.Keyword, tokenLocation, name)
-			}
-
-			return makeToken(ToastType.Name, tokenLocation, name)
 		}
 	}
 }
