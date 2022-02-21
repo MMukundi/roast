@@ -44,17 +44,28 @@ const LogicOperators: Set<string> = new Set(['&&', '||', '!'])
 const Keywords: Set<string> = new Set(['def', 'if', 'ifelse'])
 
 /** A token scope containing all past and future tokens which have been parsed */
-interface Scope {
-	/** The stack of consumed tokens */
-	prevTokens: Token[]
+export interface Scope {
+	/** The locations where each variable is used */
+	variableUses: Record<string, Set<SourceLocation>>
 
-	/** The queue of tokens parsed for lookahead, but not yet consumed */
-	nextTokens: Token[]
+	/** The locations where each variable is defined */
+	variableDefinitions: Record<string, Set<SourceLocation>>
+
+	/** The locations where each function is defined */
+	functionDefinitions: Record<string, Set<SourceLocation>>
+
+	parent?: Scope
 }
 
 // TODO: This was previously abstract; was there a reason why?
 /** A location from which tokens can be read */
 export class LexerSource {
+
+	currentIndices = {
+		[BlockStart]: 0,
+		[ArrayStart]: 0,
+	}
+
 	/** The raw text of this source */
 	protected text: string = ''
 	/** The raw index of this source */
@@ -93,57 +104,67 @@ export class LexerSource {
 	 * this forms the include stack
 	 */
 	includedIn: LexerSource = null;
-
-	/** The stack of scopes created by nested code blocks,
-	 * to isolate scopes from one another, contextually */
-	scopeStack: Scope[] = [{ prevTokens: [], nextTokens: [] }]
-
 	/** The source at the top of the include stack. */
 	get deepestSource(): LexerSource {
 		return this.includes ? this.includes.deepestSource : this
 	}
 
-	/** The scope at the top of the scope stack. */
-	get deepestScope(): Scope {
-		return this.scopeStack[this.scopeStack.length - 1]
-	}
+	// /** The scope at the top of the scope stack. */
+	// get deepestScope(): Scope {
+	// 	return this.scopeStack[this.scopeStack.length - 1]
+	// }
 
-	/** The scope at the bottom of the scope stack. */
-	get globalScope(): Scope {
-		return this.scopeStack[0]
-	}
+	// /** The scope at the bottom of the scope stack. */
+	// get globalScope(): Scope {
+	// 	return this.scopeStack[0]
+	// }
 
-	/** Iterates over all tokens in the global scope. */
-	[Symbol.iterator]() {
-		return this.globalScope.prevTokens[Symbol.iterator]()
-	}
+	// /** Iterates over all tokens in the global scope. */
+	// [Symbol.iterator]() {
+	// 	return this.globalScope.prevTokens[Symbol.iterator]()
+	// }
 
 	/** Gets all of the tokens in the source. */
 	getAllTokens() {
-		while (!(this.done() && this.deepestScope.nextTokens.length == 0)) {
-			this.readToken()
-			// const token = this.readToken()
-			// if (token)
-			// 	yield token
+		const tokens = []
+		const globalScope: Scope = {
+			variableUses: {},
+			variableDefinitions: {},
+
+			functionDefinitions: {},
+
+			parent: undefined
 		}
-		for (let i = 0; i < this.globalScope.prevTokens.length; i++) {
-			const token = this.globalScope.prevTokens[i]
-			const nextToken = this.globalScope.prevTokens[i + 1]
 
-			if (token.type === ToastType.Name) {
-				if (nextToken && nextToken.type == ToastType.Keyword && nextToken.value == "def") {
-					const prevToken = this.globalScope.prevTokens[i - 1]
-					const map = (prevToken && prevToken.type == ToastType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
+		const currentScope: Scope = globalScope
 
-					map[token.value] = map[token.value] || new Set()
-					map[token.value].add(nextToken.location)
+		let lastToken = null
+		let lastLastToken = null
+		while (!this.done()) {
+			const token = this.readToken()
+			if (token) {
+				tokens.push(token)
+
+				if (lastToken?.type === ToastType.Name) {
+					if (token && token.type == ToastType.Keyword && token.value == "def") {
+						const map = (lastLastToken && lastLastToken.type == ToastType.CodeBlock) ? currentScope.functionDefinitions : currentScope.variableDefinitions
+
+						map[lastToken.value] = map[lastToken.value] || new Set()
+						map[lastToken.value].add(token.location)
+					}
+					else {
+						currentScope.variableUses[lastToken.value] = currentScope.variableUses[lastToken.value] || new Set()
+						currentScope.variableUses[lastToken.value].add(lastToken.location)
+					}
 				}
-				else {
-					this.variableUses[token.value] = this.variableUses[token.value] || new Set()
-					this.variableUses[token.value].add(token.location)
-				}
+				lastLastToken = lastToken
+				lastToken = token
 			}
 		}
+		this.functionDefinitions = globalScope.functionDefinitions
+		this.variableDefinitions = globalScope.variableDefinitions
+		this.variableUses = globalScope.variableUses
+		return tokens
 	}
 
 	/** Gets the current character.
@@ -298,9 +319,7 @@ export class LexerSource {
 	 * @returns The token which was read
 	*/
 	readToken(): Token {
-		const token = this.deepestScope.nextTokens.length ? this.deepestScope.nextTokens.shift() : this.parseToken()
-		if (token)
-			this.deepestScope.prevTokens.push(token)
+		const token = this.parseToken()
 		return token
 	}
 	/** Parses the next token in the lexer source. 
@@ -339,10 +358,7 @@ export class LexerSource {
 				const tokens: Token[] = []
 				const { end, type } = DelimiterEnds[currentChar]
 
-				if (currentChar === BlockStart) {
-					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
-					// console.log("{")
-				}
+
 
 				this.skipWhitespace()
 				this.skipComments()
@@ -367,14 +383,10 @@ export class LexerSource {
 					this.skipComments()
 					tokens.push(token)
 				}
-				if (currentChar === BlockStart) {
-					this.scopeStack.pop()
-					// console.log("}")
-				}
 
 				this.advanceOne()
 
-				return makeToken(type, tokenLocation, { tokens, end: { ...this.location }, name: null }) as Token
+				return makeToken(type, tokenLocation, { tokens, end: { ...this.location }, name: null, index: (this.currentIndices[currentChar]++) }) as Token
 			case BlockEnd:
 				throw ("Unbalanced block end")
 			// this.advanceOne()
@@ -552,9 +564,13 @@ export class LexerSource {
 							this.advanceOne()
 						}
 
+						if (name == "call") {
+							return makeToken(ToastType.Call, tokenLocation)
+						}
 						if (Keywords.has(name)) {
 							return makeToken(ToastType.Keyword, tokenLocation, name)
 						}
+
 
 						return makeToken(ToastType.Name, tokenLocation, name)
 					}

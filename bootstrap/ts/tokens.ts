@@ -63,6 +63,9 @@ export enum ToastType {
 
 	/** &&, ||, ! */
 	LogicOperator,
+
+	/** call */
+	Call,
 }
 
 /** A list of tokens */
@@ -78,7 +81,9 @@ export type TokenValues = {
 	[ToastType.MathOperator]: '+' | '-' | '*' | '/' | '%'
 	[ToastType.ShiftOperator]: '>>' | '<<'
 	[ToastType.BitwiseOperator]: '&' | '|' | '~' | '^'
-	[ToastType.LogicOperator]: '&&' | '||' | '!'
+	[ToastType.LogicOperator]: '&&' | '||' | '!',
+	[ToastType.Call]: undefined,
+
 
 	[ToastType.Keyword]: string
 
@@ -86,8 +91,8 @@ export type TokenValues = {
 	[ToastType.Boolean]: boolean
 	[ToastType.Name]: string
 	[ToastType.Integer]: number
-	[ToastType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string }
-	[ToastType.Array]: { tokens: TokenList, end: SourceLocation, name?: string }
+	[ToastType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
+	[ToastType.Array]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
 	[ToastType.String]: string
 	[ToastType.CString]: string
 }
@@ -120,6 +125,9 @@ export function tokenString(token: Token): string {
 			const firsts: TokenList = values.slice(0, 3)
 			let summary: TokenList[] = (firsts.length + 2 >= values.length) ? [firsts] : [firsts, [values[values.length - 1]]]
 			return (`CodeBlock<${values.length} instructions>{${summary.map(tokenList => tokenList.map(summaryToken => tokenString(summaryToken))).join("...")}}`)
+
+		case ToastType.Call:
+			return `<Call>`;
 		case ToastType.Name:
 			return `Name[${token.value}]`;
 

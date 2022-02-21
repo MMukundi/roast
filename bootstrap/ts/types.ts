@@ -48,6 +48,59 @@ export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.Syscode, [ToastType.Integer]],
 	[ToastType.FunctionPointer, [ToastType.Pointer]],
 ]))
+export const AllTypes = [ToastType.Any,
+
+/** [0-9]+ */
+ToastType.Integer,
+
+/** [a-zA-Z]+ */
+ToastType.Name,
+
+/** true, false */
+ToastType.Boolean,
+
+/** "^["]+" */
+ToastType.String,
+
+/** "^["]+" */
+ToastType.CString,
+
+/** [ ...Tokens ] */
+ToastType.Array,
+
+/** { ...Tokens } */
+ToastType.CodeBlock,
+
+/** Built-in function, user defined operation */
+ToastType.FunctionPointer,
+
+/** Any pointer */
+ToastType.Pointer,
+
+/** A block of addressable memory */
+ToastType.MemoryRegion,
+
+/** A system code */
+ToastType.Syscode,
+
+/** for, if, else, ... */
+ToastType.Keyword,
+
+/** >>, << */
+ToastType.ShiftOperator,
+
+/** +, -, *, /, % */
+ToastType.MathOperator,
+
+/** &, |, ~ */
+ToastType.BitwiseOperator,
+
+/** &&, ||, ! */
+ToastType.LogicOperator,
+
+/** call */
+ToastType.Call,
+]
 
 interface TypeConstraint {
 	// Matches

@@ -6,14 +6,105 @@ import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
 import { Token, SourceLocation, TokenMap, tokenString, TokenValues, ToastType } from "./tokens";
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
-import { toastImplicitConversions, closure, CompileTimeConstant } from "./types"
+import { toastImplicitConversions, closure, CompileTimeConstant, AllTypes } from "./types"
 
 const EntryPoint = "_start"
 type TokenProcessor<T> = {
 	[type in ToastType]: (context: T, value: TokenMap[type]) => void
 }
 
+type NameMap = Record<string, TypeConstraint>
+
 const SysCodes = { "Exit": "Exit", "Fork": "Fork", "Write": "Write", "Open": "Open", "Exec": "Exec", "Wait": "Wait4" }
+
+
+abstract class TypeConstraint {
+	abstract getToken(): Token | null
+	abstract getType(): SpecificTypeConstraint
+	abstract canConvertTo(type: ToastType): boolean;
+}
+
+class SpecificTypeConstraint extends TypeConstraint {
+	static specificConstraints: Record<ToastType, SpecificTypeConstraint> = {} as any
+	constructor(public type: ToastType) {
+		super();
+	}
+
+	static for(type: ToastType) {
+		return this.specificConstraints[type]
+	}
+
+	canConvertTo(type: ToastType): boolean {
+		return toastImplicitConversions.get(this.type).has(type)
+	}
+	getToken(): Token | null {
+		return null;
+	}
+	getType(): SpecificTypeConstraint {
+		return this;
+	}
+}
+abstract class ToastTypeConstraint extends TypeConstraint {
+	abstract getType(): SpecificTypeConstraint
+	canConvertTo(type: ToastType): boolean {
+		return this.getType().canConvertTo(type)
+	}
+}
+for (const type of AllTypes) {
+	SpecificTypeConstraint.specificConstraints[type] = new SpecificTypeConstraint(type)
+}
+
+class NameConstraint extends ToastTypeConstraint {
+	constructor(public nameToken: Token, public nameMap: NameMap) { super() }
+
+	getType(): SpecificTypeConstraint {
+		let valueConstraint = this.nameMap[this.nameToken.value]
+		let valueToken = valueConstraint.getToken()
+		console.log("init,", valueToken, this.nameToken, this.nameMap)
+		while (valueToken?.type == ToastType.Name) {
+			valueConstraint = this.nameMap[valueToken.value]
+			valueToken = valueConstraint.getToken()
+			console.log("loop", valueToken)
+		}
+		console.log("end,", valueToken)
+		return valueConstraint.getType()
+	}
+
+	getToken() {
+		let valueConstraint = this.nameMap[this.nameToken.value]
+		let valueToken = valueConstraint.getToken()
+		while (valueToken?.type == ToastType.Name) {
+			valueConstraint = this.nameMap[valueToken.value]
+			valueToken = valueConstraint.getToken()
+		}
+		return valueToken
+	}
+}
+class TokenConstraint extends ToastTypeConstraint {
+	constructor(public token: Token, public nameMap: NameMap) { super() }
+
+	getType(): SpecificTypeConstraint {
+		// return new SpecificTypeConstraint(this.token.type)
+		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.token.type)
+	}
+	getToken(): Token {
+		// return this.token
+		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
+	}
+}
+
+interface Scope {
+	/** The locations where each variable is used */
+	variableUses: Record<string, Set<number>>
+
+	/** The locations where each variable is defined */
+	variableDefinitions: Record<string, ToastType>
+
+	/** The locations where each function is defined */
+	functionDefinitions: Record<string, number>
+
+	parent?: Scope
+}
 
 function OpenBlock(compiler: Compiler, name?: string) {
 	// Start a new label
@@ -211,10 +302,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				compiler.assemblySource += `\t${compiler.functionCall} print_num_base\n`
 				return
 
-			case 'call':
-				compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`
-				return;
-
 
 			case 'strEq':
 				compiler.assemblySource += `\t${compiler.functionCall} str_eq\n`
@@ -345,6 +432,10 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	[ToastType.FunctionPointer](compiler) { },
 	[ToastType.MemoryRegion](compiler) { },
 	[ToastType.Syscode](compiler) { },
+	[ToastType.Call](compiler) {
+		compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`
+		return;
+	},
 
 	[ToastType.Keyword](compiler, { value }) {
 		switch (value) {
@@ -503,9 +594,104 @@ export class Compiler {
 		return this.contextStack[this.contextStack.length - 1]
 	}
 
+	static expect(typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[], typesToExpect: SpecificTypeConstraint[]) {
+		for (const expectedType of typesToExpect) {
+			if (typeStack.length && typeStack[typeStack.length - 1].canConvertTo(expectedType.type)) {
+				console.log("match!")
+				typeStack.pop()
+			} else {
+				console.log("no match :(")
+				inputsNeeded.push(expectedType)
+			}
+		}
+	}
+
+	static typeCheck(tokens: Token[], nameMap: NameMap, blockTypes: Record<number, { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }>): { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] } {
+		// console.log(tokens)
+		console.log(">>")
+		const inputTypesNeeded: TypeConstraint[] = []
+		const typeStack: TypeConstraint[] = []
+
+		let lastToken = null
+		let lastLastToken = null
+		for (let token of tokens) {
+			console.log(typeStack, nameMap, blockTypes)
+			if (lastToken?.type === ToastType.Name) {
+				const nameToken: Token = lastToken;
+				if (token && token.type == ToastType.Keyword && token.value == "def") {
+					// Removing variable name from stack
+					typeStack.pop()
+					const valueType = typeStack.pop()
+
+					if (valueType == undefined) {
+						console.log("No definition")
+					} else {
+						nameMap[nameToken.value] = valueType
+					}
+					continue
+				}
+			}
+			lastLastToken = lastToken
+			lastToken = token
+
+
+
+			switch (token.type) {
+				case ToastType.Call:
+					const valueType = typeStack.pop();
+					const functionToken = valueType.getToken()
+
+					if (functionToken.type == ToastType.CodeBlock) {
+						console.log("PRE", typeStack, inputTypesNeeded)
+
+						const functionData = blockTypes[functionToken.value.index]
+						Compiler.expect(typeStack, inputTypesNeeded, functionData.inputs)
+						typeStack.push(...functionData.outputs)
+
+						console.log("POST", typeStack, inputTypesNeeded, functionData)
+
+						// console.log("Calling function", blockTypes[functionToken.value.index], functionToken.value.index)
+						// console.log(nameMap["double"].getToken().value.index)
+						// console.log(functionToken, blockTypes[functionToken.value.index])
+					} else {
+						// console.log(functionToken)
+						console.log("Error; trying to call a non-function")
+					}
+
+					break;
+				case ToastType.Name:
+					typeStack.push(new TokenConstraint(token, nameMap))
+					break;
+				case ToastType.CodeBlock:
+					if (!blockTypes[token.value.index]) {
+						// console.log("PreBlock:", typeStack, nameMap)
+						const type = this.typeCheck(token.value.tokens, nameMap, blockTypes);
+						blockTypes[token.value.index] = type
+						// console.log("PostBlock:", token.value.index, typeStack, nameMap, type, blockTypes)
+					}
+					typeStack.push(new TokenConstraint(token, nameMap))
+					break;
+				case ToastType.MathOperator:
+					Compiler.expect(typeStack, inputTypesNeeded, [SpecificTypeConstraint.for(ToastType.Integer), SpecificTypeConstraint.for(ToastType.Integer)])
+					typeStack.push(SpecificTypeConstraint.for(ToastType.Integer))
+					break;
+				default:
+					typeStack.push(new TokenConstraint(token, nameMap))
+					break;
+			}
+		}
+		console.log("<<")
+		return {
+			inputs: inputTypesNeeded,
+			outputs: typeStack
+		} as any
+	}
+
 	generateAssembly() {
-		this.source.getAllTokens()
-		this.contextStack.push({ index: 0, tokens: this.source.deepestScope.prevTokens })
+		const tokens = this.source.getAllTokens()
+		console.log(Compiler.typeCheck(tokens, {}, {}))
+
+		this.contextStack.push({ index: 0, tokens })
 		while (this.contextStack.length) {
 			const token = this.currentContext.tokens[this.currentContext.index]
 			this.writeToken(token)
