@@ -272,7 +272,12 @@ export class LexerSource {
 	 * @returns A string representing the current location in the lexer source
 	*/
 	locationString(location: SourceLocation) {
-		return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		// return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		return `${location.sourceName}:${location.line + 1}:${location.column + 1}`
+	}
+	static locationString(location: SourceLocation) {
+		// return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		return `${location.sourceName}:${location.line + 1}:${location.column + 1}`
 	}
 
 	/** Returns whether or not the lexer source is completely consumed.
@@ -423,7 +428,7 @@ export class LexerSource {
 				this.advanceOne()
 				if (this.current() === 'c') {
 					this.advanceOne()
-					return makeToken(ToastType.CString, tokenLocation, stringLiteral)
+					return makeToken(ToastType.StringPointer, tokenLocation, stringLiteral)
 				}
 				return makeToken(ToastType.String, tokenLocation, stringLiteral)
 			}
@@ -515,27 +520,6 @@ export class LexerSource {
 			}
 			return makeToken(ToastType.Integer, tokenLocation, value)
 		} else {
-			/**
-			case '>=':
-				compiler.assemblySource += `\ttoastStackCompare ge\n`;
-				return;
-			case '<=':
-				compiler.assemblySource += `\ttoastStackCompare le\n`;
-				return;
-
-			case '>':
-				compiler.assemblySource += `\ttoastStackCompare g\n`;
-				return;
-			case '<':
-				compiler.assemblySource += `\ttoastStackCompare l\n`;
-				return;
-			case '=':
-				compiler.assemblySource += `\ttoastStackCompare e\n`;
-				return;
-
-			case '!=':
-				compiler.assemblySource += `\ttoastStackCompare ne\n`;
-				return; */
 			switch (firstChar) {
 				case '+': case '-': case '/': case '*': case '%':
 					if (firstChar != NegativeSign && firstChar != IncludeSign) {
@@ -546,7 +530,7 @@ export class LexerSource {
 					this.advanceOne()
 					if (this.current() == "=") {
 						this.advanceOne()
-						return makeToken(ToastType.Name, tokenLocation, "!=")
+						return makeToken(ToastType.ComparisonOperator, tokenLocation, "!=")
 					}
 					return makeToken(ToastType.LogicOperator, tokenLocation, `!`)
 				case '&': case '|':
@@ -556,6 +540,8 @@ export class LexerSource {
 						this.advanceOne()
 						return makeToken(ToastType.LogicOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.LogicOperator])
 					}
+					this.advanceOne()
+					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
 				case '~':
 				case '^':
 					this.advanceOne()

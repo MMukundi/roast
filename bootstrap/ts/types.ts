@@ -1,5 +1,8 @@
+import exp from "constants"
+import { LexerSource } from "./lexer"
 import { Compiler } from "./parser"
-import { Token, ToastType } from "./tokens"
+import { Token, ToastType, SourceLocation } from "./tokens"
+import { TypeChecker } from "./typeChecker"
 
 export function closure<T>(mapping: Map<T, T[]>, common: T[] = []): Map<T, Set<T>> {
 	const newMapping: Map<T, Set<T>> = new Map()
@@ -26,6 +29,63 @@ export function closure<T>(mapping: Map<T, T[]>, common: T[] = []): Map<T, Set<T
 	return newMapping
 }
 
+export const AllTypes = [
+	ToastType.Any,
+
+	/** [0-9]+ */
+	ToastType.Integer,
+
+	/** [a-zA-Z]+ */
+	ToastType.Name,
+
+	/** true, false */
+	ToastType.Boolean,
+
+	/** "^["]+" */
+	ToastType.String,
+
+	/** "^["]+" */
+	ToastType.StringPointer,
+
+	/** [ ...Tokens ] */
+	ToastType.Array,
+
+	/** { ...Tokens } */
+	ToastType.CodeBlock,
+
+	/** Built-in function, user defined operation */
+	ToastType.FunctionPointer,
+
+	/** Any pointer */
+	ToastType.Pointer,
+
+	/** A block of addressable memory */
+	ToastType.MemoryRegion,
+
+	/** A system code */
+	ToastType.Syscode,
+
+	/** for, if, else, ... */
+	ToastType.Keyword,
+
+	/** >>, << */
+	ToastType.ShiftOperator,
+
+	/** +, -, *, /, % */
+	ToastType.MathOperator,
+
+	/** &, |, ~ */
+	ToastType.BitwiseOperator,
+
+	/** &&, ||, ! */
+	ToastType.LogicOperator,
+
+	/** call */
+	ToastType.Call,
+
+	/** call */
+	ToastType.FileDescriptor,
+]
 export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.Keyword, [ToastType.Keyword]],
 
@@ -33,7 +93,10 @@ export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.Any, [ToastType.Any]],
 
 	[ToastType.Name, [ToastType.Any,]],
-	[ToastType.Integer, [ToastType.Any,]],
+	[ToastType.Integer, [ToastType.Any]],
+
+	[ToastType.Byte, [ToastType.Char, ToastType.Integer]],
+	[ToastType.Char, [ToastType.Byte]],
 
 	[ToastType.Boolean, [ToastType.Integer]],
 	[ToastType.Pointer, [ToastType.Integer]],
@@ -41,7 +104,7 @@ export const toastImplicitConversions = closure<ToastType>(new Map([
 	[ToastType.MemoryRegion, [ToastType.Pointer]],
 
 	[ToastType.String, [ToastType.MemoryRegion]],
-	[ToastType.CString, [ToastType.CString]],
+	[ToastType.StringPointer, [ToastType.StringPointer]],
 
 	[ToastType.Array, [ToastType.MemoryRegion]],
 
@@ -50,62 +113,7 @@ export const toastImplicitConversions = closure<ToastType>(new Map([
 
 	[ToastType.FileDescriptor, [ToastType.Integer]],
 ]))
-export const AllTypes = [ToastType.Any,
 
-/** [0-9]+ */
-ToastType.Integer,
-
-/** [a-zA-Z]+ */
-ToastType.Name,
-
-/** true, false */
-ToastType.Boolean,
-
-/** "^["]+" */
-ToastType.String,
-
-/** "^["]+" */
-ToastType.CString,
-
-/** [ ...Tokens ] */
-ToastType.Array,
-
-/** { ...Tokens } */
-ToastType.CodeBlock,
-
-/** Built-in function, user defined operation */
-ToastType.FunctionPointer,
-
-/** Any pointer */
-ToastType.Pointer,
-
-/** A block of addressable memory */
-ToastType.MemoryRegion,
-
-/** A system code */
-ToastType.Syscode,
-
-/** for, if, else, ... */
-ToastType.Keyword,
-
-/** >>, << */
-ToastType.ShiftOperator,
-
-/** +, -, *, /, % */
-ToastType.MathOperator,
-
-/** &, |, ~ */
-ToastType.BitwiseOperator,
-
-/** &&, ||, ! */
-ToastType.LogicOperator,
-
-/** call */
-ToastType.Call,
-
-/** call */
-ToastType.FileDescriptor,
-]
 
 export const TypeNames: Record<ToastType, string> = {
 	[ToastType.Pointer]: "Pointer",
@@ -121,6 +129,9 @@ export const TypeNames: Record<ToastType, string> = {
 	[ToastType.BuiltInFunction]: "BuiltInFunction",
 	[ToastType.Call]: "Call",
 
+	[ToastType.Byte]: "Byte",
+	[ToastType.Char]: "Char",
+
 
 	[ToastType.Keyword]: "Keyword",
 
@@ -131,7 +142,7 @@ export const TypeNames: Record<ToastType, string> = {
 	[ToastType.CodeBlock]: "CodeBlock",
 	[ToastType.Array]: "Array",
 	[ToastType.String]: "String",
-	[ToastType.CString]: "CString",
+	[ToastType.StringPointer]: "StringPointer",
 }
 
 export class CompileTimeConstant {
@@ -168,23 +179,69 @@ export class Operator {
 export type NameMap = Record<string, TypeConstraint>
 
 export abstract class TypeConstraint {
+	constructor(public location: SourceLocation) { }
 	abstract getToken(): Token | null
 	abstract getType(): SpecificTypeConstraint
 	abstract canConvertTo(type: ToastType): boolean;
+	abstract canMatch(type: TypeConstraint): boolean;
+}
+
+export class GenericTypeConstraint extends TypeConstraint {
+	canMatch(type: TypeConstraint): boolean {
+		throw new Error("Method not implemented.")
+	}
+	static potentialTypes: Record<string, Set<TypeConstraint>> = {}
+	constructor(location: SourceLocation, public name: string) {
+		super(location);
+		if (!GenericTypeConstraint.potentialTypes[name]) {
+			GenericTypeConstraint.restrict(this.name, AllTypes.map(x => new SpecificTypeConstraint(location, x)))
+		}
+	}
+
+	static restrict(name: string, types: Iterable<TypeConstraint>) {
+		const newTypes = new Set(types)
+		if (this.potentialTypes[name]) {
+			this.potentialTypes[name] = new Set([...this.potentialTypes[name]].filter(i => newTypes.has(i)))
+		} else {
+			this.potentialTypes[name] = newTypes
+		}
+	}
+	static reset() {
+		this.potentialTypes = {}
+	}
+
+	getToken(): Token {
+		return null;
+	}
+	getType(): SpecificTypeConstraint {
+		throw new Error("Method not implemented.")
+	}
+	canConvertTo(type: ToastType): boolean {
+		if (type == ToastType.Any) return true;
+		const newTypes = new Set<TypeConstraint>()
+		for (const potentialType of GenericTypeConstraint.potentialTypes[this.name]) {
+			if (potentialType.canConvertTo(type)) {
+				for (const otherType of toastImplicitConversions.get(potentialType.getType().type)) {
+					newTypes.add(new SpecificTypeConstraint(this.location, otherType))
+				}
+			}
+		}
+		GenericTypeConstraint.restrict(this.name, newTypes)
+		return newTypes.size > 0
+	}
 }
 
 export class SpecificTypeConstraint extends TypeConstraint {
-	static specificConstraints: Record<ToastType, SpecificTypeConstraint> = {} as any
-	constructor(public type: ToastType) {
-		super();
+
+	constructor(location: SourceLocation, public type: ToastType) {
+		super(location);
 	}
 
-	static for(type: ToastType) {
-		return this.specificConstraints[type]
+	canMatch(type: TypeConstraint): boolean {
+		return this.canConvertTo(type.getType().type)
 	}
-
 	canConvertTo(type: ToastType): boolean {
-		return toastImplicitConversions.get(this.type).has(type)
+		return this.type == ToastType.Any || toastImplicitConversions.get(this.type).has(type)
 	}
 	getToken(): Token | null {
 		return null;
@@ -197,19 +254,19 @@ export class SpecificTypeConstraint extends TypeConstraint {
 export abstract class ToastTypeConstraint extends TypeConstraint {
 	abstract getType(): SpecificTypeConstraint
 	canConvertTo(type: ToastType): boolean {
-		return this.getType().canConvertTo(type)
+		return type == ToastType.Any || this.getType().canConvertTo(type)
 	}
-}
-for (const type of AllTypes) {
-	SpecificTypeConstraint.specificConstraints[type] = new SpecificTypeConstraint(type)
 }
 
 export class NameConstraint extends ToastTypeConstraint {
-	constructor(public nameToken: Token, public nameMap: NameMap) { super() }
+	canMatch(type: TypeConstraint): boolean {
+		throw new Error("Method not implemented.")
+	}
+	constructor(public nameToken: Token, public nameMap: NameMap) { super(nameToken.location) }
 
 	getType(): SpecificTypeConstraint {
 		let valueConstraint = this.nameMap[this.nameToken.value]
-		let valueToken = valueConstraint.getToken()
+		let valueToken = valueConstraint?.getToken()
 		while (valueToken?.type == ToastType.Name) {
 			valueConstraint = this.nameMap[valueToken.value]
 			valueToken = valueConstraint.getToken()
@@ -218,110 +275,284 @@ export class NameConstraint extends ToastTypeConstraint {
 	}
 
 	getToken() {
-		let valueConstraint = this.nameMap[this.nameToken.value]
-		let valueToken = valueConstraint.getToken()
-		while (valueToken?.type == ToastType.Name) {
-			valueConstraint = this.nameMap[valueToken.value]
-			valueToken = valueConstraint.getToken()
-		}
-		return valueToken
+		return this.nameToken
+		// let valueConstraint = this.nameMap[this.nameToken.value]
+		// let valueToken = valueConstraint?.getToken()
+		// while (valueToken?.type == ToastType.Name) {
+		// 	valueConstraint = this.nameMap[valueToken.value]
+		// 	valueToken = valueConstraint.getToken()
+		// }
+		// return valueToken
 	}
 }
 export class TokenConstraint extends ToastTypeConstraint {
-	constructor(public token: Token, public nameMap: NameMap) { super() }
+	canMatch(type: TypeConstraint): boolean {
+		throw new Error("Method not implemented.")
+	}
+	constructor(public token: Token, public nameMap: NameMap) { super(token.location) }
 
 	getType(): SpecificTypeConstraint {
-		// return new SpecificTypeConstraint(this.token.type)
-		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.token.type)
+		// return new SpecificTypeConstraint(location, This.token.type)
+		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.location, this.token.type)
 	}
 	getToken(): Token {
 		// return this.token
 		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
 	}
 }
+export class FunctionSignatureConstraint extends ToastTypeConstraint {
+	constructor(public desiredSignature: Signature, private typeChecker: TypeChecker, location: SourceLocation) { super(location) }
+	canMatch(type: TypeConstraint): boolean {
+		const token = type.getToken()
+		if (token) {
+			if (token.type == ToastType.CodeBlock) {
+				if (this.typeChecker.blockTypes[token.value.index]) {
+					const { inputs, outputs } = this.typeChecker.blockTypes[token.value.index]
+
+					if (inputs.length < this.desiredSignature.inputs.length) {
+						this.typeChecker.logError(`Not enough input types`, type.location)
+						return false
+					}
+					if (inputs.length > this.desiredSignature.inputs.length) {
+						this.typeChecker.logError(`Too many input types`, type.location)
+						return false;
+					}
+
+					for (const expectedType of this.desiredSignature.inputs) {
+						if (!inputs[0].canConvertTo(expectedType.type)) {
+							const actualType = inputs[0].getType()
+							console.log(actualType, expectedType)
+							this.typeChecker.logError(`Cannot convert ${TypeNames[actualType?.type]} to ${TypeNames[expectedType.type]}\n\t - ${TypeNames[actualType?.type]} introduced ${LexerSource.locationString(actualType.location)}\n\t - ${TypeNames[expectedType.type]} introduced ${LexerSource.locationString(expectedType.location)}`, expectedType.location)
+						}
+						inputs.shift()
+					}
+					return true;
+				}
+			}
+		}
+
+	}
+
+	getType(): SpecificTypeConstraint {
+		return new SpecificTypeConstraint(this.location, ToastType.CodeBlock)
+	}
+	getToken(): Token {
+		// return this.token
+		return null
+	}
+}
 
 export interface Signature { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }
 
 
-export const BuiltInFunctionSignature: Record<string, Signature> = {
+export const BuiltInFunctionSignature: Record<string, (type: TypeChecker, location: SourceLocation) => Signature> = {
 	/// StackOps
-	'pop': { inputs: [new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
+	'pop': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: []
+	}),
 
 	// TODO! Variadic number of inputs
-	'popN': { inputs: [new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
+	'popN': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: []
+	}),
 
-	'swap': { inputs: [new SpecificTypeConstraint(ToastType.Any), new SpecificTypeConstraint(ToastType.Any)], outputs: [new SpecificTypeConstraint(ToastType.Any), new SpecificTypeConstraint(ToastType.Any)] },
-	'dup': { inputs: [new SpecificTypeConstraint(ToastType.Any)], outputs: [new SpecificTypeConstraint(ToastType.Any), new SpecificTypeConstraint(ToastType.Any)] },
+	'swap': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Any), new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Any), new SpecificTypeConstraint(location, ToastType.Any)]
+	}),
+	'dup': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Any), new SpecificTypeConstraint(location, ToastType.Any)]
+	}),
 
 	// -- ROLL --
-	'roll': { inputs: [new SpecificTypeConstraint(ToastType.Any)], outputs: [new SpecificTypeConstraint(ToastType.Any), new SpecificTypeConstraint(ToastType.Any)] },
+	'roll': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Any), new SpecificTypeConstraint(location, ToastType.Any)]
+	}),
 
-	'close': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor)], outputs: [] },
+	'close': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor)],
+		outputs: []
+	}),
 
-	'readOpen': { inputs: [], outputs: [new SpecificTypeConstraint(ToastType.FileDescriptor)] },
-	'writeOpen': { inputs: [], outputs: [new SpecificTypeConstraint(ToastType.FileDescriptor)] },
+	'readOpen': (t, location) => ({
+		inputs: [],
+		outputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor)]
+	}),
+	'writeOpen': (t, location) => ({
+		inputs: [],
+		outputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor)]
+	}),
 
-	'readFile': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor)], outputs: [new SpecificTypeConstraint(ToastType.MemoryRegion), new SpecificTypeConstraint(ToastType.Integer)] },
-	'readFileTo': { inputs: [new SpecificTypeConstraint(ToastType.MemoryRegion), new SpecificTypeConstraint(ToastType.FileDescriptor)], outputs: [new SpecificTypeConstraint(ToastType.Integer)] },
+	'readFile': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.MemoryRegion), new SpecificTypeConstraint(location, ToastType.Integer)]
+	}),
+	'readFileTo': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.MemoryRegion), new SpecificTypeConstraint(location, ToastType.FileDescriptor)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Integer)]
+	}),
 
-	'array': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [new SpecificTypeConstraint(ToastType.Array)] },
+	'array': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Array)]
+	}),
 
-	'buffer': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [new SpecificTypeConstraint(ToastType.MemoryRegion)] },
+	'buffer': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.MemoryRegion)]
+	}),
 
-	'length': { inputs: [new SpecificTypeConstraint(ToastType.Array)], outputs: [new SpecificTypeConstraint(ToastType.Integer)] },
+	'length': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Array)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Integer)]
+	}),
 
-	'print': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.String)], outputs: [] },
+	'print': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.String)],
+		outputs: []
+	}),
 
-	'fprint': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor), new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.String)], outputs: [] },
+	'fprint': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.String)],
+		outputs: []
+	}),
 
 	// TODO! Variadic typing for printf
-	'printf': { inputs: [new SpecificTypeConstraint(ToastType.String)], outputs: [] },
-	'fprintf': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor), new SpecificTypeConstraint(ToastType.String)], outputs: [] },
+	'printf': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: []
+	}),
+	'fprintf': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.String)],
+		outputs: []
+	}),
 
-	'sprintf': { inputs: [new SpecificTypeConstraint(ToastType.String)], outputs: [new SpecificTypeConstraint(ToastType.String)] },
+	'sprintf': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)]
+	}),
 
-	'input': { inputs: [], outputs: [new SpecificTypeConstraint(ToastType.String)] },
+	'input': (t, location) => ({
+		inputs: [],
+		outputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)]
+	}),
 
-	'filePrintNum': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor), new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
-	'printNum': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
-	'filePrintNumBase': { inputs: [new SpecificTypeConstraint(ToastType.FileDescriptor), new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
-	'printNumBase': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
+	'filePrintNum': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
+	'printNum': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
+	'filePrintNumBase': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
+	'printNumBase': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
 
-	'strEq': { inputs: [new SpecificTypeConstraint(ToastType.String), new SpecificTypeConstraint(ToastType.String)], outputs: [new SpecificTypeConstraint(ToastType.Boolean)] },
+	'strEq': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer), new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Boolean)]
+	}),
 
-	'strLen': { inputs: [new SpecificTypeConstraint(ToastType.String)], outputs: [new SpecificTypeConstraint(ToastType.Integer)] },
+	'strLen': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Integer)]
+	}),
 
 	// TODO! Variadic typing for copy
-	'copy': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
+	'copy': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
 
 	// TODO! Variadic typing for index
-	'index': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
+	'index': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
 
-	'strCopy': { inputs: [new SpecificTypeConstraint(ToastType.String), new SpecificTypeConstraint(ToastType.String)], outputs: [] },
-	'memCopy': { inputs: [new SpecificTypeConstraint(ToastType.MemoryRegion), new SpecificTypeConstraint(ToastType.MemoryRegion)], outputs: [] },
+	'strCopy': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer), new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: []
+	}),
+	'memCopy': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.MemoryRegion), new SpecificTypeConstraint(location, ToastType.MemoryRegion)],
+		outputs: []
+	}),
 
 	// TODO! Typing for bytes vs values
-	'memCopyByte': { inputs: [new SpecificTypeConstraint(ToastType.MemoryRegion), new SpecificTypeConstraint(ToastType.MemoryRegion)], outputs: [] },
+	'memCopyByte': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.MemoryRegion), new SpecificTypeConstraint(location, ToastType.MemoryRegion)],
+		outputs: []
+	}),
 
-	'exit': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [] },
+	'exit': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: []
+	}),
 
 	// TODO! Change to 'type that can convert to pointer'
-	'getPtr': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Pointer)] },
+	'getPtr': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Pointer)]
+	}),
 	// TODO! More specific than any?
-	'get': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Any)] },
-	'set': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer), new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
-	'read': { inputs: [new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Any)] },
-	'write': { inputs: [new SpecificTypeConstraint(ToastType.Pointer), new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
+	'get': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Any)]
+	}),
+	'set': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer), new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: []
+	}),
+	'read': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Any)]
+	}),
+	'write': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Pointer), new SpecificTypeConstraint(location, ToastType.Any)],
+		outputs: []
+	}),
 
 	// TODO! Change to 'type that can convert to pointer'
 	// TODO! Typing for bytes vs values
-	'getBytePtr': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Pointer)] },
+	'getBytePtr': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Pointer)]
+	}),
 	// TODO! More specific than any?
-	'getByte': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Any)] },
-	'setByte': { inputs: [new SpecificTypeConstraint(ToastType.Integer), new SpecificTypeConstraint(ToastType.Pointer), new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
-	'readByte': { inputs: [new SpecificTypeConstraint(ToastType.Pointer)], outputs: [new SpecificTypeConstraint(ToastType.Any)] },
-	'writeByte': { inputs: [new SpecificTypeConstraint(ToastType.Pointer), new SpecificTypeConstraint(ToastType.Any)], outputs: [] },
+	'getByte': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Byte)]
+	}),
+	'setByte': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.Pointer), new SpecificTypeConstraint(location, ToastType.Byte)],
+		outputs: []
+	}),
+	'readByte': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Pointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Byte)]
+	}),
+	'writeByte': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Pointer), new SpecificTypeConstraint(location, ToastType.Byte)],
+		outputs: []
+	}),
 
-	'intToString': { inputs: [new SpecificTypeConstraint(ToastType.Integer)], outputs: [new SpecificTypeConstraint(ToastType.String)] },
-	'stringToInt': { inputs: [new SpecificTypeConstraint(ToastType.String)], outputs: [new SpecificTypeConstraint(ToastType.Integer)] },
+	'intToString': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.StringPointer)]
+	}),
+	'stringToInt': (t, location) => ({
+		inputs: [new SpecificTypeConstraint(location, ToastType.StringPointer)],
+		outputs: [new SpecificTypeConstraint(location, ToastType.Integer)]
+	}),
 }

@@ -1,12 +1,13 @@
 import { execSync } from "child_process";
 import { cp, writeFileSync } from "fs";
 import path from "path";
-import { CompilerFlags, CompilerOptions, CompilerRootDirectory, Inputs, Options, StandardLibraryDirectory } from "./arguments";
+import { CompilerFlags, CompilerOptions, CompilerRootDirectory, Flags, Inputs, Options, StandardLibraryDirectory } from "./arguments";
 import { LexerSource, LexerSourceFile } from "./lexer";
 import { debugLogger, errorLogger, noteLogger } from "./loggers";
 import { Token, SourceLocation, TokenMap, tokenString, TokenValues, ToastType } from "./tokens";
 import { escapeString, ToastExtensions, unescapeChar, unescapeString } from "./utils";
 import { toastImplicitConversions, closure, CompileTimeConstant, AllTypes, Signature, SpecificTypeConstraint, TokenConstraint, TypeConstraint, NameMap, BuiltInFunctionSignature, TypeNames } from "./types"
+import { TypeChecker } from "./typeChecker";
 
 const EntryPoint = "_start"
 type TokenProcessor<T> = {
@@ -305,7 +306,7 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 	[ToastType.String](compiler, { value: str }) {
 		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n\tmov r8, toastCurrentStringLength\n\tpush r8\n`;
 	},
-	[ToastType.CString](compiler, { value: str }) {
+	[ToastType.StringPointer](compiler, { value: str }) {
 		compiler.assemblySource += `\ttoastDefineString \`${unescapeString(str)}\`\n\tlea r8, [toastCurrentString]\n\tpush r8\n`;
 	},
 	[ToastType.Integer](compiler, { value }) {
@@ -422,6 +423,8 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 		}
 	},
 	[ToastType.FileDescriptor](compiler) { },
+	[ToastType.Char](compiler, { value }) { },
+	[ToastType.Byte](compiler, { value }) { },
 	[ToastType.ComparisonOperator](compiler, { value }) {
 		switch (value) {
 			case '>=':
@@ -487,6 +490,9 @@ export class Compiler {
 	constructor() {
 
 	}
+	flushErrorHere(error: string, location: SourceLocation) {
+		errorLogger.flushLog(`[${this.source.locationString(location)}] ${error}`)
+	}
 	errorHere(error: string, location: SourceLocation) {
 		errorLogger.flushLog(`[${this.source.locationString(location)}] ${error}`)
 	}
@@ -517,121 +523,12 @@ export class Compiler {
 		return this.contextStack[this.contextStack.length - 1]
 	}
 
-	static expect(typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[], typesToExpect: SpecificTypeConstraint[]): string | null {
-		for (const expectedType of typesToExpect) {
-			if (typeStack.length) {
-				if (typeStack[typeStack.length - 1].canConvertTo(expectedType.type)) {
-					typeStack.pop()
-				} else {
-					return `Cannot convert ${TypeNames[typeStack[typeStack.length - 1].getType()?.type]} to ${TypeNames[expectedType.type]}`
-				}
-			} else {
-				inputsNeeded.push(expectedType)
-			}
-		}
-		return null
-	}
-	static apply(signature: Signature, typeStack: TypeConstraint[], inputsNeeded: TypeConstraint[]): string | null {
-		const expect = Compiler.expect(typeStack, inputsNeeded, signature.inputs)
-		typeStack.push(...signature.outputs)
-		return expect
-	}
-
-	static typeCheck(tokens: Token[], nameMap: NameMap, blockTypes: Record<number, Signature>): Signature & {
-		errors: string[]
-	} {
-		const inputTypesNeeded: TypeConstraint[] = []
-		const typeStack: TypeConstraint[] = []
-
-		let errors: string[] = []
-
-		let lastToken = null
-		let lastLastToken = null
-		for (let token of tokens) {
-			if (lastToken?.type === ToastType.Name) {
-				const nameToken: Token = lastToken;
-				if (token && token.type == ToastType.Keyword && token.value == "def") {
-					// Removing variable name from stack
-					typeStack.pop()
-					const valueType = typeStack.pop()
-
-					if (valueType == undefined) {
-						errors.push("Definition with no value")
-					} else {
-						nameMap[nameToken.value] = valueType
-					}
-					continue
-				}
-			}
-			lastLastToken = lastToken
-			lastToken = token
-
-
-
-			switch (token.type) {
-				case ToastType.Call:
-					const valueType = typeStack.pop();
-					const functionToken = valueType.getToken()
-
-					if (functionToken.type == ToastType.CodeBlock) {
-						const functionSignature = blockTypes[functionToken.value.index]
-						const functionCallError = Compiler.apply(functionSignature, typeStack, inputTypesNeeded)
-						if (functionCallError) {
-							errors.push(functionCallError)
-						}
-					} else {
-						errors.push(`Cannot call a ${functionToken.type}`)
-					}
-
-					break;
-				case ToastType.BuiltInFunction:
-					const builtInError = Compiler.apply(BuiltInFunctionSignature[token.value], typeStack, inputTypesNeeded)
-					if (builtInError) {
-						errors.push(builtInError)
-					}
-					// typeStack.push(new TokenConstraint(token, nameMap))
-					break;
-				case ToastType.Name:
-					typeStack.push(new TokenConstraint(token, nameMap))
-					break;
-				case ToastType.CodeBlock:
-					if (!blockTypes[token.value.index]) {
-						const type = this.typeCheck(token.value.tokens, nameMap, blockTypes);
-						blockTypes[token.value.index] = type
-					}
-					typeStack.push(new TokenConstraint(token, nameMap))
-					break;
-				case ToastType.MathOperator:
-					const operatorError = Compiler.apply({
-						inputs: [SpecificTypeConstraint.for(ToastType.Integer), SpecificTypeConstraint.for(ToastType.Integer)],
-						outputs: [SpecificTypeConstraint.for(ToastType.Integer)]
-					}, typeStack, inputTypesNeeded)
-					if (operatorError) {
-						errors.push(operatorError)
-					}
-					break;
-				default:
-					typeStack.push(new TokenConstraint(token, nameMap))
-					break;
-			}
-		}
-		return {
-			inputs: inputTypesNeeded as SpecificTypeConstraint[],
-			outputs: typeStack as SpecificTypeConstraint[],
-			errors
-		}
-	}
 
 	generateAssembly(): boolean {
 		const tokens = this.source.getAllTokens()
-		const typeResults = (Compiler.typeCheck(tokens, {}, {}))
-
-		if (typeResults.errors.length) {
-			for (const error of typeResults.errors) {
-				errorLogger.styleLog(error)
-			}
-			errorLogger.flush()
-			return false
+		if (CompilerFlags[Flags.TypeCheck]) {
+			const typeChecker = new TypeChecker(this)
+			const typeResults = typeChecker.typeCheck(tokens)
 		}
 
 		this.contextStack.push({ index: 0, tokens })

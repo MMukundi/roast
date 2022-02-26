@@ -29,7 +29,7 @@ export enum ToastType {
 	String,
 
 	/** "^["]+" */
-	CString,
+	StringPointer,
 
 	/** [ ...Tokens ] */
 	Array,
@@ -75,6 +75,9 @@ export enum ToastType {
 
 	/** pop,swap,... */
 	BuiltInFunction,
+
+	Byte,
+	Char,
 }
 
 /** A list of tokens */
@@ -96,6 +99,9 @@ export type TokenValues = {
 	[ToastType.BuiltInFunction]: string
 	[ToastType.Call]: undefined,
 
+	[ToastType.Byte]: number,
+	[ToastType.Char]: string,
+
 
 	[ToastType.Keyword]: string
 
@@ -106,7 +112,7 @@ export type TokenValues = {
 	[ToastType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
 	[ToastType.Array]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
 	[ToastType.String]: string
-	[ToastType.CString]: string
+	[ToastType.StringPointer]: string
 }
 
 /** The Token for a specific TokenType */
