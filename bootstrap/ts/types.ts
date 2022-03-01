@@ -412,12 +412,12 @@ export const BuiltInFunctionSignature: Record<string, (type: TypeChecker, locati
 	}),
 
 	'print': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.String)],
+		inputs: [new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.StringPointer)],
 		outputs: []
 	}),
 
 	'fprint': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.String)],
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.Integer), new SpecificTypeConstraint(location, ToastType.StringPointer)],
 		outputs: []
 	}),
 
@@ -427,7 +427,7 @@ export const BuiltInFunctionSignature: Record<string, (type: TypeChecker, locati
 		outputs: []
 	}),
 	'fprintf': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.String)],
+		inputs: [new SpecificTypeConstraint(location, ToastType.FileDescriptor), new SpecificTypeConstraint(location, ToastType.StringPointer)],
 		outputs: []
 	}),
 

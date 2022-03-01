@@ -529,6 +529,7 @@ export class Compiler {
 		if (CompilerFlags[Flags.TypeCheck]) {
 			const typeChecker = new TypeChecker(this)
 			const typeResults = typeChecker.typeCheck(tokens)
+			console.log(typeResults)
 		}
 
 		this.contextStack.push({ index: 0, tokens })
