@@ -3,7 +3,8 @@ import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
-import { makeToken, SourceLocation, Token, tokenString, TokenType } from "./tokens"
+import { makeToken, SourceLocation, Token, tokenString, ToastType, TokenValues } from "./tokens"
+import { BuiltInFunctionSignature, Signature, SpecificTypeConstraint } from "./types"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */
@@ -18,37 +19,54 @@ const BlockStart = '{'
 /** The symbol which marks the end of a code block */
 const BlockEnd = '}'
 
-/** The symbol which marks the beginning of a list */
-const ListStart = '['
-/** The symbol which marks the end of a list */
-const ListEnd = ']'
+/** The symbol which marks the beginning of an array */
+const ArrayStart = '['
+/** The symbol which marks the end of a array */
+const ArrayEnd = ']'
 
 const DelimiterEnds = {
 	[BlockStart]: {
 		end: BlockEnd,
-		type: TokenType.CodeBlock
+		type: ToastType.CodeBlock
 	},
-	[ListStart]: {
-		end: ListEnd,
-		type: TokenType.List
+	[ArrayStart]: {
+		end: ArrayEnd,
+		type: ToastType.Array
 	},
 } as const
 
 /** Special characters which should not be included in the variable names */
-const ToastDelimiters = new Set([BlockStart, BlockEnd, ListStart, ListEnd])
+const ToastDelimiters = new Set([BlockStart, BlockEnd, ArrayStart, ArrayEnd])
+
+const MathOperators: Set<string> = new Set(['+', '-', '*', '/', '%'] as const)
+const ShiftOperators: Set<string> = new Set(['>>', '<<'])
+const BitwiseOperators: Set<string> = new Set(['&', '|', '~', '^'])
+const LogicOperators: Set<string> = new Set(['&&', '||', '!'])
+const Keywords: Set<string> = new Set(['def', 'if', 'ifelse', 'redef'])
 
 /** A token scope containing all past and future tokens which have been parsed */
-interface Scope {
-	/** The stack of consumed tokens */
-	prevTokens: Token[]
+export interface Scope {
+	/** The locations where each variable is used */
+	variableUses: Record<string, Set<SourceLocation>>
 
-	/** The queue of tokens parsed for lookahead, but not yet consumed */
-	nextTokens: Token[]
+	/** The locations where each variable is defined */
+	variableDefinitions: Record<string, Set<SourceLocation>>
+
+	/** The locations where each function is defined */
+	functionDefinitions: Record<string, Set<SourceLocation>>
+
+	parent?: Scope
 }
 
 // TODO: This was previously abstract; was there a reason why?
 /** A location from which tokens can be read */
 export class LexerSource {
+
+	currentIndices = {
+		[BlockStart]: 0,
+		[ArrayStart]: 0,
+	}
+
 	/** The raw text of this source */
 	protected text: string = ''
 	/** The raw index of this source */
@@ -87,58 +105,67 @@ export class LexerSource {
 	 * this forms the include stack
 	 */
 	includedIn: LexerSource = null;
-
-	/** The stack of scopes created by nested code blocks,
-	 * to isolate scopes from one another, contextually */
-	scopeStack: Scope[] = [{ prevTokens: [], nextTokens: [] }]
-
 	/** The source at the top of the include stack. */
 	get deepestSource(): LexerSource {
 		return this.includes ? this.includes.deepestSource : this
 	}
 
-	/** The scope at the top of the scope stack. */
-	get deepestScope(): Scope {
-		return this.scopeStack[this.scopeStack.length - 1]
-	}
+	// /** The scope at the top of the scope stack. */
+	// get deepestScope(): Scope {
+	// 	return this.scopeStack[this.scopeStack.length - 1]
+	// }
 
-	/** The scope at the bottom of the scope stack. */
-	get globalScope(): Scope {
-		return this.scopeStack[0]
-	}
+	// /** The scope at the bottom of the scope stack. */
+	// get globalScope(): Scope {
+	// 	return this.scopeStack[0]
+	// }
 
-	/** Iterates over all tokens in the global scope. */
-	[Symbol.iterator]() {
-		return this.globalScope.prevTokens[Symbol.iterator]()
-	}
+	// /** Iterates over all tokens in the global scope. */
+	// [Symbol.iterator]() {
+	// 	return this.globalScope.prevTokens[Symbol.iterator]()
+	// }
 
 	/** Gets all of the tokens in the source. */
 	getAllTokens() {
-		while (!(this.done() && this.deepestScope.nextTokens.length == 0)) {
-			this.readToken()
-			// const token = this.readToken()
-			// if (token)
-			// 	yield token
+		const tokens = []
+		const globalScope: Scope = {
+			variableUses: {},
+			variableDefinitions: {},
+
+			functionDefinitions: {},
+
+			parent: undefined
 		}
-		for (let i = 0; i < this.globalScope.prevTokens.length; i++) {
-			const token = this.globalScope.prevTokens[i]
-			const nextToken = this.globalScope.prevTokens[i + 1]
 
-			if (token.type === TokenType.Name) {
-				if (nextToken && nextToken.type == TokenType.Name && nextToken.value == "def") {
-					const prevToken = this.globalScope.prevTokens[i - 1]
-					const map = (prevToken && prevToken.type == TokenType.CodeBlock) ? this.functionDefinitions : this.variableDefinitions
+		const currentScope: Scope = globalScope
 
-					map[token.value] = map[token.value] || new Set()
-					map[token.value].add(nextToken.location)
-					i++
+		let lastToken = null
+		let lastLastToken = null
+		while (!this.done()) {
+			const token = this.readToken()
+			if (token) {
+				tokens.push(token)
+
+				if (lastToken?.type === ToastType.Name) {
+					if (token && token.type == ToastType.Keyword && token.value == "def") {
+						const map = (lastLastToken && lastLastToken.type == ToastType.CodeBlock) ? currentScope.functionDefinitions : currentScope.variableDefinitions
+
+						map[lastToken.value] = map[lastToken.value] || new Set()
+						map[lastToken.value].add(token.location)
+					}
+					else {
+						currentScope.variableUses[lastToken.value] = currentScope.variableUses[lastToken.value] || new Set()
+						currentScope.variableUses[lastToken.value].add(lastToken.location)
+					}
 				}
-				else {
-					this.variableUses[token.value] = this.variableUses[token.value] || new Set()
-					this.variableUses[token.value].add(token.location)
-				}
+				lastLastToken = lastToken
+				lastToken = token
 			}
 		}
+		this.functionDefinitions = globalScope.functionDefinitions
+		this.variableDefinitions = globalScope.variableDefinitions
+		this.variableUses = globalScope.variableUses
+		return tokens
 	}
 
 	/** Gets the current character.
@@ -245,7 +272,12 @@ export class LexerSource {
 	 * @returns A string representing the current location in the lexer source
 	*/
 	locationString(location: SourceLocation) {
-		return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		// return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		return `${location.sourceName}:${location.line + 1}:${location.column + 1}`
+	}
+	static locationString(location: SourceLocation) {
+		// return `${this.deepestSource.name}:${location.line + 1}:${location.column + 1}`
+		return `${location.sourceName}:${location.line + 1}:${location.column + 1}`
 	}
 
 	/** Returns whether or not the lexer source is completely consumed.
@@ -293,9 +325,7 @@ export class LexerSource {
 	 * @returns The token which was read
 	*/
 	readToken(): Token {
-		const token = this.deepestScope.nextTokens.length ? this.deepestScope.nextTokens.shift() : this.parseToken()
-		if (token)
-			this.deepestScope.prevTokens.push(token)
+		const token = this.parseToken()
 		return token
 	}
 	/** Parses the next token in the lexer source. 
@@ -303,7 +333,6 @@ export class LexerSource {
 	*/
 	parseToken(): Token {
 		const token = this.getToken()
-		// console.log(token ? tokenString(token) : "UF", token?.type, this.includeDone(), this.done(), this.scopeStack.length)
 		if (this.includeDone() && this.includes) {
 			this.deepestSource.includedIn.includes = null
 		}
@@ -327,17 +356,14 @@ export class LexerSource {
 		switch (currentChar) {
 			// Testing for unary negation
 			// this.advanceOne()
-			// return makeToken(TokenType.OpenList, tokenLocation)
+			// return makeToken(TokenType.OpenArray, tokenLocation)
 			case BlockStart:
-			case ListStart:
+			case ArrayStart:
 				this.advanceOne()
 				const tokens: Token[] = []
 				const { end, type } = DelimiterEnds[currentChar]
 
-				if (currentChar === BlockStart) {
-					this.scopeStack.push({ prevTokens: [], nextTokens: [] })
-					// console.log("{")
-				}
+
 
 				this.skipWhitespace()
 				this.skipComments()
@@ -362,21 +388,17 @@ export class LexerSource {
 					this.skipComments()
 					tokens.push(token)
 				}
-				if (currentChar === BlockStart) {
-					this.scopeStack.pop()
-					// console.log("}")
-				}
 
 				this.advanceOne()
 
-				return makeToken(type, tokenLocation, { tokens, end: { ...this.location }, name: null }) as Token
+				return makeToken(type, tokenLocation, { tokens, end: { ...this.location }, name: null, index: (this.currentIndices[currentChar]++) }) as Token
 			case BlockEnd:
 				throw ("Unbalanced block end")
 			// this.advanceOne()
 			// return makeToken(TokenType.CloseBlock, tokenLocation)
-			case ListEnd:
+			case ArrayEnd:
 				// this.advanceOne()
-				// return makeToken(TokenType.CloseList, tokenLocation)
+				// return makeToken(TokenType.CloseArray, tokenLocation)
 				throw ("Unbalanced array end")
 
 			// Support for character constants
@@ -396,7 +418,7 @@ export class LexerSource {
 					throw ("Character literal with more than one character")
 				}
 				this.advanceOne()
-				return makeToken(TokenType.Value, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
+				return makeToken(ToastType.Integer, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
 			}
 			case "\"": {
 				const stringLiteral = this.readStringLiteral()
@@ -406,16 +428,15 @@ export class LexerSource {
 				this.advanceOne()
 				if (this.current() === 'c') {
 					this.advanceOne()
-					return makeToken(TokenType.CString, tokenLocation, stringLiteral)
+					return makeToken(ToastType.StringPointer, tokenLocation, stringLiteral)
 				}
-				return makeToken(TokenType.String, tokenLocation, stringLiteral)
+				return makeToken(ToastType.String, tokenLocation, stringLiteral)
 			}
 		}
 
 		// Testing for unary negation
 		let firstChar = currentChar
 		if (currentChar == NegativeSign || currentChar == IncludeSign) {
-			firstChar = currentChar
 			this.advanceOne()
 			currentChar = this.current()
 		}
@@ -463,7 +484,7 @@ export class LexerSource {
 				return
 			}
 			// throw ("Invalid preprocessor command")
-			return makeToken(TokenType.Name, tokenLocation, '%')
+			return makeToken(ToastType.MathOperator, tokenLocation, '%')
 		}
 		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
@@ -497,23 +518,80 @@ export class LexerSource {
 			if (firstChar == "-") {
 				value *= -1
 			}
-			return makeToken(TokenType.Value, tokenLocation, value)
+			return makeToken(ToastType.Integer, tokenLocation, value)
 		} else {
-			let name: string = firstChar == "-" ? "-" : ""
+			switch (firstChar) {
+				case '+': case '-': case '/': case '*': case '%':
+					if (firstChar != NegativeSign && firstChar != IncludeSign) {
+						this.advanceOne()
+					}
+					return makeToken(ToastType.MathOperator, tokenLocation, firstChar as TokenValues[ToastType.MathOperator])
+				case '!':
+					this.advanceOne()
+					if (this.current() == "=") {
+						this.advanceOne()
+						return makeToken(ToastType.ComparisonOperator, tokenLocation, "!=")
+					}
+					return makeToken(ToastType.LogicOperator, tokenLocation, `!`)
+				case '&': case '|':
+					this.advanceOne()
+					currentChar = this.current()
+					if (currentChar == firstChar) {
+						this.advanceOne()
+						return makeToken(ToastType.LogicOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.LogicOperator])
+					}
+					this.advanceOne()
+					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
+				case '~':
+				case '^':
+					this.advanceOne()
+					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
 
-			name += this.advanceWhile(() => {
-				const current = this.current()
-				if (!(isWhitespace(current) || ToastDelimiters.has(current))) {
-					return true;
-				}
-				return false
-			})
-			const charAfter = this.current()
-			if (charAfter && isWhitespace(charAfter)) {
-				this.advanceOne()
+				case '>': case '<':
+					this.advanceOne()
+					currentChar = this.current()
+					if (currentChar == firstChar) {
+						this.advanceOne()
+						return makeToken(ToastType.ShiftOperator, tokenLocation, `${firstChar}${firstChar}` as TokenValues[ToastType.ShiftOperator])
+					}
+					if (currentChar == "=") {
+						this.advanceOne()
+						return makeToken(ToastType.ComparisonOperator, tokenLocation, `${firstChar}=` as TokenValues[ToastType.ComparisonOperator])
+					}
+					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
+				case '=':
+					this.advanceOne()
+					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
+
+				default:
+					{
+
+						const name = this.advanceWhile(() => {
+							const current = this.current()
+							if (!(isWhitespace(current) || ToastDelimiters.has(current))) {
+								return true;
+							}
+							return false
+						})
+						const charAfter = this.current()
+						if (charAfter && isWhitespace(charAfter)) {
+							this.advanceOne()
+						}
+
+						if (name == "call") {
+							return makeToken(ToastType.Call, tokenLocation)
+						}
+						if (Keywords.has(name)) {
+							return makeToken(ToastType.Keyword, tokenLocation, name)
+						}
+						if (name in BuiltInFunctionSignature) {
+							return makeToken(ToastType.BuiltInFunction, tokenLocation, name)
+						}
+
+
+						return makeToken(ToastType.Name, tokenLocation, name)
+					}
 			}
-
-			return makeToken(TokenType.Name, tokenLocation, name)
 		}
 	}
 }

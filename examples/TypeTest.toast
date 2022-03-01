@@ -1,0 +1,5 @@
+1 2 + value def
+{ 2 * } double def
+{ double call double call } quadruple def
+
+value quadruple call "Hi!"c printf

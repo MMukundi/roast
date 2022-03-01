@@ -21,7 +21,8 @@ export enum Flags {
 	/** If set, the assembler will also emit
 	 * a file with all macros and preprocessor
 	 * statements */
-	EmitPreprocessed = "p"
+	EmitPreprocessed = "p",
+	TypeCheck = "t"
 }
 
 /** The compiler options, after parsing inputs from the command line  */
@@ -34,6 +35,7 @@ export const CompilerOptions: Record<Options, string> = {
 export const CompilerFlags: Record<Flags, boolean> = {
 	[Flags.Debug]: false,
 	[Flags.EmitPreprocessed]: false,
+	[Flags.TypeCheck]: false,
 }
 
 // Iterate over the command line arguments, and parse the options and flags
