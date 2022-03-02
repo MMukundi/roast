@@ -26,4 +26,4 @@ jobs:
         run: npm --prefix bootstrap i;
         
       - name: Run tests
-      - run: npm run toast test/test
+        run: npm run toast test/test
