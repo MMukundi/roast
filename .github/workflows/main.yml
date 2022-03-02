@@ -23,7 +23,7 @@ jobs:
         run: brew install nasm
         
       - name: Install node modules
-        run: npm --prefix bootstrap i;
+        run: npm --prefix bootstrap i; npm i
         
       - name: Run tests
         run: npm run toast test/test
