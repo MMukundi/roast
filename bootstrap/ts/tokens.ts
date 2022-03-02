@@ -1,4 +1,4 @@
-export enum ToastType {
+export enum TokenType {
 	// Deprecated delimiter tokens
 	// /** [ */
 	// OpenArray,
@@ -86,44 +86,44 @@ type TokenList = Token[]
 /** The value expected for each TokenType */
 export type TokenValues = {
 	// TODO! Figure out the types for the new types
-	[ToastType.Pointer]: any
-	[ToastType.FunctionPointer]: any
-	[ToastType.MemoryRegion]: any
-	[ToastType.Syscode]: any
-	[ToastType.MathOperator]: '+' | '-' | '*' | '/' | '%'
-	[ToastType.ShiftOperator]: '>>' | '<<'
-	[ToastType.BitwiseOperator]: '&' | '|' | '~' | '^'
-	[ToastType.LogicOperator]: '&&' | '||' | '!',
-	[ToastType.FileDescriptor]: number,
-	[ToastType.ComparisonOperator]: '>=' | '<=' | '>' | '<' | '=' | '!='
-	[ToastType.BuiltInFunction]: string
-	[ToastType.Call]: undefined,
+	[TokenType.Pointer]: any
+	[TokenType.FunctionPointer]: any
+	[TokenType.MemoryRegion]: any
+	[TokenType.Syscode]: any
+	[TokenType.MathOperator]: '+' | '-' | '*' | '/' | '%'
+	[TokenType.ShiftOperator]: '>>' | '<<'
+	[TokenType.BitwiseOperator]: '&' | '|' | '~' | '^'
+	[TokenType.LogicOperator]: '&&' | '||' | '!',
+	[TokenType.FileDescriptor]: number,
+	[TokenType.ComparisonOperator]: '>=' | '<=' | '>' | '<' | '=' | '!='
+	[TokenType.BuiltInFunction]: string
+	[TokenType.Call]: undefined,
 
-	[ToastType.Byte]: number,
-	[ToastType.Char]: string,
+	[TokenType.Byte]: number,
+	[TokenType.Char]: string,
 
 
-	[ToastType.Keyword]: string
+	[TokenType.Keyword]: string
 
-	[ToastType.Any]: any
-	[ToastType.Boolean]: boolean
-	[ToastType.Name]: string
-	[ToastType.Integer]: number
-	[ToastType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
-	[ToastType.Array]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
-	[ToastType.String]: string
-	[ToastType.StringPointer]: string
+	[TokenType.Any]: any
+	[TokenType.Boolean]: boolean
+	[TokenType.Name]: string
+	[TokenType.Integer]: number
+	[TokenType.CodeBlock]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
+	[TokenType.Array]: { tokens: TokenList, end: SourceLocation, name?: string, index: number }
+	[TokenType.String]: string
+	[TokenType.StringPointer]: string
 }
 
 /** The Token for a specific TokenType */
-type SpecificToken<T extends ToastType> = { type: T, value: TokenValues[T], location: SourceLocation }
+type SpecificToken<T extends TokenType> = { type: T, value: TokenValues[T], location: SourceLocation }
 /** The Token expected for each TokenType */
 export type TokenMap = {
-	[tokenType in ToastType]: SpecificToken<tokenType>
+	[tokenType in TokenType]: SpecificToken<tokenType>
 }
 
 /** Any Token */
-export type Token = TokenMap[ToastType]
+export type Token = TokenMap[TokenType]
 export type SourceLocation = {
 	/** The number of lines to skip from the beginning of the file */
 	line: number
@@ -133,20 +133,20 @@ export type SourceLocation = {
 	sourceName: string,
 }
 /** Creates a token of the given type */
-export function makeToken<T extends ToastType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {
+export function makeToken<T extends TokenType>(type: T, location: SourceLocation, value?: TokenValues[T]): SpecificToken<T> {
 	return { type, value, location }
 }
 export function tokenString(token: Token): string {
 	switch (token.type) {
-		case ToastType.CodeBlock:
+		case TokenType.CodeBlock:
 			const values = token.value.tokens
 			const firsts: TokenList = values.slice(0, 3)
 			let summary: TokenList[] = (firsts.length + 2 >= values.length) ? [firsts] : [firsts, [values[values.length - 1]]]
 			return (`CodeBlock<${values.length} instructions>{${summary.map(tokenList => tokenList.map(summaryToken => tokenString(summaryToken))).join("...")}}`)
 
-		case ToastType.Call:
+		case TokenType.Call:
 			return `<Call>`;
-		case ToastType.Name:
+		case TokenType.Name:
 			return `Name[${token.value}]`;
 
 		default:

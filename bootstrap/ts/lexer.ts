@@ -3,7 +3,7 @@ import { openSync, readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
-import { makeToken, SourceLocation, Token, tokenString, ToastType, TokenValues } from "./tokens"
+import { makeToken, SourceLocation, Token, tokenString, TokenType, TokenValues } from "./tokens"
 import { BuiltInFunctionSignature, Signature, SpecificTypeConstraint } from "./types"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
@@ -27,11 +27,11 @@ const ArrayEnd = ']'
 const DelimiterEnds = {
 	[BlockStart]: {
 		end: BlockEnd,
-		type: ToastType.CodeBlock
+		type: TokenType.CodeBlock
 	},
 	[ArrayStart]: {
 		end: ArrayEnd,
-		type: ToastType.Array
+		type: TokenType.Array
 	},
 } as const
 
@@ -146,9 +146,9 @@ export class LexerSource {
 			if (token) {
 				tokens.push(token)
 
-				if (lastToken?.type === ToastType.Name) {
-					if (token && token.type == ToastType.Keyword && token.value == "def") {
-						const map = (lastLastToken && lastLastToken.type == ToastType.CodeBlock) ? currentScope.functionDefinitions : currentScope.variableDefinitions
+				if (lastToken?.type === TokenType.Name) {
+					if (token && token.type == TokenType.Keyword && token.value == "def") {
+						const map = (lastLastToken && lastLastToken.type == TokenType.CodeBlock) ? currentScope.functionDefinitions : currentScope.variableDefinitions
 
 						map[lastToken.value] = map[lastToken.value] || new Set()
 						map[lastToken.value].add(token.location)
@@ -418,7 +418,7 @@ export class LexerSource {
 					throw ("Character literal with more than one character")
 				}
 				this.advanceOne()
-				return makeToken(ToastType.Integer, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
+				return makeToken(TokenType.Integer, tokenLocation, (escape ? escapeChar(char) : char).charCodeAt(0))
 			}
 			case "\"": {
 				const stringLiteral = this.readStringLiteral()
@@ -428,9 +428,9 @@ export class LexerSource {
 				this.advanceOne()
 				if (this.current() === 'c') {
 					this.advanceOne()
-					return makeToken(ToastType.StringPointer, tokenLocation, stringLiteral)
+					return makeToken(TokenType.StringPointer, tokenLocation, stringLiteral)
 				}
-				return makeToken(ToastType.String, tokenLocation, stringLiteral)
+				return makeToken(TokenType.String, tokenLocation, stringLiteral)
 			}
 		}
 
@@ -484,7 +484,7 @@ export class LexerSource {
 				return
 			}
 			// throw ("Invalid preprocessor command")
-			return makeToken(ToastType.MathOperator, tokenLocation, '%')
+			return makeToken(TokenType.MathOperator, tokenLocation, '%')
 		}
 		else if (isDigitCode(currentCharAsDigit)) {
 			let value = currentCharAsDigit;
@@ -518,50 +518,50 @@ export class LexerSource {
 			if (firstChar == "-") {
 				value *= -1
 			}
-			return makeToken(ToastType.Integer, tokenLocation, value)
+			return makeToken(TokenType.Integer, tokenLocation, value)
 		} else {
 			switch (firstChar) {
 				case '+': case '-': case '/': case '*': case '%':
 					if (firstChar != NegativeSign && firstChar != IncludeSign) {
 						this.advanceOne()
 					}
-					return makeToken(ToastType.MathOperator, tokenLocation, firstChar as TokenValues[ToastType.MathOperator])
+					return makeToken(TokenType.MathOperator, tokenLocation, firstChar as TokenValues[TokenType.MathOperator])
 				case '!':
 					this.advanceOne()
 					if (this.current() == "=") {
 						this.advanceOne()
-						return makeToken(ToastType.ComparisonOperator, tokenLocation, "!=")
+						return makeToken(TokenType.ComparisonOperator, tokenLocation, "!=")
 					}
-					return makeToken(ToastType.LogicOperator, tokenLocation, `!`)
+					return makeToken(TokenType.LogicOperator, tokenLocation, `!`)
 				case '&': case '|':
 					this.advanceOne()
 					currentChar = this.current()
 					if (currentChar == firstChar) {
 						this.advanceOne()
-						return makeToken(ToastType.LogicOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[ToastType.LogicOperator])
+						return makeToken(TokenType.LogicOperator, tokenLocation, `${currentChar}${currentChar}` as TokenValues[TokenType.LogicOperator])
 					}
 					this.advanceOne()
-					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
+					return makeToken(TokenType.BitwiseOperator, tokenLocation, firstChar)
 				case '~':
 				case '^':
 					this.advanceOne()
-					return makeToken(ToastType.BitwiseOperator, tokenLocation, firstChar)
+					return makeToken(TokenType.BitwiseOperator, tokenLocation, firstChar)
 
 				case '>': case '<':
 					this.advanceOne()
 					currentChar = this.current()
 					if (currentChar == firstChar) {
 						this.advanceOne()
-						return makeToken(ToastType.ShiftOperator, tokenLocation, `${firstChar}${firstChar}` as TokenValues[ToastType.ShiftOperator])
+						return makeToken(TokenType.ShiftOperator, tokenLocation, `${firstChar}${firstChar}` as TokenValues[TokenType.ShiftOperator])
 					}
 					if (currentChar == "=") {
 						this.advanceOne()
-						return makeToken(ToastType.ComparisonOperator, tokenLocation, `${firstChar}=` as TokenValues[ToastType.ComparisonOperator])
+						return makeToken(TokenType.ComparisonOperator, tokenLocation, `${firstChar}=` as TokenValues[TokenType.ComparisonOperator])
 					}
-					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
+					return makeToken(TokenType.ComparisonOperator, tokenLocation, firstChar)
 				case '=':
 					this.advanceOne()
-					return makeToken(ToastType.ComparisonOperator, tokenLocation, firstChar)
+					return makeToken(TokenType.ComparisonOperator, tokenLocation, firstChar)
 
 				default:
 					{
@@ -579,17 +579,17 @@ export class LexerSource {
 						}
 
 						if (name == "call") {
-							return makeToken(ToastType.Call, tokenLocation)
+							return makeToken(TokenType.Call, tokenLocation)
 						}
 						if (Keywords.has(name)) {
-							return makeToken(ToastType.Keyword, tokenLocation, name)
+							return makeToken(TokenType.Keyword, tokenLocation, name)
 						}
 						if (name in BuiltInFunctionSignature) {
-							return makeToken(ToastType.BuiltInFunction, tokenLocation, name)
+							return makeToken(TokenType.BuiltInFunction, tokenLocation, name)
 						}
 
 
-						return makeToken(ToastType.Name, tokenLocation, name)
+						return makeToken(TokenType.Name, tokenLocation, name)
 					}
 			}
 		}

@@ -1,7 +1,7 @@
 import exp from "constants"
 import { LexerSource } from "./lexer"
 import { Compiler } from "./parser"
-import { Token, SourceLocation, ToastType } from "./tokens"
+import { Token, SourceLocation, TokenType } from "./tokens"
 import { TypeChecker } from "./typeChecker"
 
 export enum Type {
@@ -351,7 +351,7 @@ export class NameConstraint extends ToastTypeConstraint {
 	getType(): SpecificTypeConstraint {
 		let valueConstraint = this.nameMap[this.nameToken.value]
 		let valueToken = valueConstraint?.getToken()
-		while (valueToken?.type == ToastType.Name) {
+		while (valueToken?.type == TokenType.Name) {
 			valueConstraint = this.nameMap[valueToken.value]
 			valueToken = valueConstraint.getToken()
 		}
@@ -370,72 +370,72 @@ export class NameConstraint extends ToastTypeConstraint {
 	}
 }
 
-function toType(toastType: ToastType): Type {
+function toType(toastType: TokenType): Type {
 	switch (toastType) {
-		case ToastType.Any: return Type.Any;
+		case TokenType.Any: return Type.Any;
 
 		/** [0-9]+ */
-		case ToastType.Integer: return Type.Integer;
+		case TokenType.Integer: return Type.Integer;
 
 		/** [a-zA-Z]+ */
-		case ToastType.Name: return Type.Any;
+		case TokenType.Name: return Type.Any;
 
 		/** true, false */
-		case ToastType.Boolean: return Type.Boolean;
+		case TokenType.Boolean: return Type.Boolean;
 
 		/** "^["]+" */
-		case ToastType.String: return Type.String;
+		case TokenType.String: return Type.String;
 
 		/** "^["]+" */
-		case ToastType.StringPointer: return Type.StringPointer;
+		case TokenType.StringPointer: return Type.StringPointer;
 
 		/** [ ...Tokens ] */
-		case ToastType.Array: return Type.Array;
+		case TokenType.Array: return Type.Array;
 
 		/** { ...Tokens } */
-		case ToastType.CodeBlock: return Type.CodeBlock;
+		case TokenType.CodeBlock: return Type.CodeBlock;
 
 		/** Built-in function, user defined operation */
-		case ToastType.FunctionPointer: return Type.FunctionPointer;
+		case TokenType.FunctionPointer: return Type.FunctionPointer;
 
 		/** Any pointer */
-		case ToastType.Pointer: return Type.Pointer;
+		case TokenType.Pointer: return Type.Pointer;
 
 		/** A block of addressable memory */
-		case ToastType.MemoryRegion: return Type.MemoryRegion;
+		case TokenType.MemoryRegion: return Type.MemoryRegion;
 
 		/** A system code */
-		case ToastType.Syscode: return Type.Syscode;
+		case TokenType.Syscode: return Type.Syscode;
 
 		/** for, if, else, ... */
-		case ToastType.Keyword: return Type.Keyword;
+		case TokenType.Keyword: return Type.Keyword;
 
 		/** >>, << */
-		case ToastType.ShiftOperator: return Type.ShiftOperator;
+		case TokenType.ShiftOperator: return Type.ShiftOperator;
 
 		/** +, -, *, /, % */
-		case ToastType.MathOperator: return Type.MathOperator;
+		case TokenType.MathOperator: return Type.MathOperator;
 
 		/** &, |, ~ */
-		case ToastType.BitwiseOperator: return Type.BitwiseOperator;
+		case TokenType.BitwiseOperator: return Type.BitwiseOperator;
 
 		/** &&, ||, ! */
-		case ToastType.LogicOperator: return Type.LogicOperator;
+		case TokenType.LogicOperator: return Type.LogicOperator;
 
 		/** >=, <=, >, <, =, != */
-		case ToastType.ComparisonOperator: return Type.ComparisonOperator;
+		case TokenType.ComparisonOperator: return Type.ComparisonOperator;
 
 		/** call */
-		case ToastType.Call: return Type.Call;
+		case TokenType.Call: return Type.Call;
 
 		/** 1,2,3 */
-		case ToastType.FileDescriptor: return Type.FileDescriptor;
+		case TokenType.FileDescriptor: return Type.FileDescriptor;
 
 		/** pop,swap,... */
-		case ToastType.BuiltInFunction: return Type.BuiltInFunction;
+		case TokenType.BuiltInFunction: return Type.BuiltInFunction;
 
-		case ToastType.Byte: return Type.Byte;
-		case ToastType.Char: return Type.Char;
+		case TokenType.Byte: return Type.Byte;
+		case TokenType.Char: return Type.Char;
 	}
 }
 
@@ -447,11 +447,11 @@ export class TokenConstraint extends ToastTypeConstraint {
 
 	getType(): SpecificTypeConstraint {
 		// return new SpecificTypeConstraint(location, This.token.type)
-		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.location, toType(this.token.type))
+		return this.token.type == TokenType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.location, toType(this.token.type))
 	}
 	getToken(): Token {
 		// return this.token
-		return this.token.type == ToastType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
+		return this.token.type == TokenType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
 	}
 }
 export class FunctionSignatureConstraint extends ToastTypeConstraint {
@@ -459,7 +459,7 @@ export class FunctionSignatureConstraint extends ToastTypeConstraint {
 	canMatch(type: TypeConstraint): boolean {
 		const token = type.getToken()
 		if (token) {
-			if (token.type == ToastType.CodeBlock) {
+			if (token.type == TokenType.CodeBlock) {
 				if (this.typeChecker.blockTypes[token.value.index]) {
 					const { inputs, outputs } = this.typeChecker.blockTypes[token.value.index]
 
