@@ -5,7 +5,9 @@
         "watchBuild": "tsc -w",
 
         "toast": "npm -s run build; node .",
-        "toastWatch": "nodemon -x 'npm run toast -s' -e toast,ts"
+        "toastWatch": "nodemon -x 'npm run toast -s' -e toast,ts",
+
+        "test": "make check -C ../ -k -B"
     },
     "devDependencies": {
         "nodemon": "^2.0.15",
