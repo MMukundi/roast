@@ -18,12 +18,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        
+
       - name: Setup NASM
         run: brew install nasm
-        
+
       - name: Install node modules
         run: npm --prefix bootstrap i; npm i
-        
+
       - name: Run tests
-        run: npm run toast test/test
+        run: make check -k -B
