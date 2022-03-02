@@ -5,20 +5,6 @@ import { Token, SourceLocation, TokenType } from "./tokens"
 import { TypeChecker } from "./typeChecker"
 
 export enum Type {
-	// Deprecated delimiter tokens
-	// /** [ */
-	// OpenArray,
-	// /** ] */
-	// CloseArray,
-
-	// /** { */
-	// OpenBlock,
-	// /** } */
-	// CloseBlock,
-
-	// /** " */
-	// Quote,
-
 	Never,
 	/** Unknown */
 	Any,
@@ -372,8 +358,6 @@ export class NameConstraint extends ToastTypeConstraint {
 
 function toType(toastType: TokenType): Type {
 	switch (toastType) {
-		case TokenType.Any: return Type.Any;
-
 		/** [0-9]+ */
 		case TokenType.Integer: return Type.Integer;
 
@@ -394,15 +378,6 @@ function toType(toastType: TokenType): Type {
 
 		/** { ...Tokens } */
 		case TokenType.CodeBlock: return Type.CodeBlock;
-
-		/** Built-in function, user defined operation */
-		case TokenType.FunctionPointer: return Type.FunctionPointer;
-
-		/** Any pointer */
-		case TokenType.Pointer: return Type.Pointer;
-
-		/** A block of addressable memory */
-		case TokenType.MemoryRegion: return Type.MemoryRegion;
 
 		/** A system code */
 		case TokenType.Syscode: return Type.Syscode;
@@ -428,13 +403,9 @@ function toType(toastType: TokenType): Type {
 		/** call */
 		case TokenType.Call: return Type.Call;
 
-		/** 1,2,3 */
-		case TokenType.FileDescriptor: return Type.FileDescriptor;
-
 		/** pop,swap,... */
 		case TokenType.BuiltInFunction: return Type.BuiltInFunction;
 
-		case TokenType.Byte: return Type.Byte;
 		case TokenType.Char: return Type.Char;
 	}
 }

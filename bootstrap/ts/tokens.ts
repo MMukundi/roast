@@ -1,21 +1,4 @@
 export enum TokenType {
-	// Deprecated delimiter tokens
-	// /** [ */
-	// OpenArray,
-	// /** ] */
-	// CloseArray,
-
-	// /** { */
-	// OpenBlock,
-	// /** } */
-	// CloseBlock,
-
-	// /** " */
-	// Quote,
-
-	/** Unknown */
-	Any,
-
 	/** [0-9]+ */
 	Integer,
 
@@ -36,15 +19,6 @@ export enum TokenType {
 
 	/** { ...Tokens } */
 	CodeBlock,
-
-	/** Built-in function, user defined operation */
-	FunctionPointer,
-
-	/** Any pointer */
-	Pointer,
-
-	/** A block of addressable memory */
-	MemoryRegion,
 
 	/** A system code */
 	Syscode,
@@ -70,13 +44,9 @@ export enum TokenType {
 	/** call */
 	Call,
 
-	/** 1,2,3 */
-	FileDescriptor,
-
 	/** pop,swap,... */
 	BuiltInFunction,
 
-	Byte,
 	Char,
 }
 
@@ -86,26 +56,20 @@ type TokenList = Token[]
 /** The value expected for each TokenType */
 export type TokenValues = {
 	// TODO! Figure out the types for the new types
-	[TokenType.Pointer]: any
-	[TokenType.FunctionPointer]: any
-	[TokenType.MemoryRegion]: any
 	[TokenType.Syscode]: any
 	[TokenType.MathOperator]: '+' | '-' | '*' | '/' | '%'
 	[TokenType.ShiftOperator]: '>>' | '<<'
 	[TokenType.BitwiseOperator]: '&' | '|' | '~' | '^'
 	[TokenType.LogicOperator]: '&&' | '||' | '!',
-	[TokenType.FileDescriptor]: number,
 	[TokenType.ComparisonOperator]: '>=' | '<=' | '>' | '<' | '=' | '!='
 	[TokenType.BuiltInFunction]: string
 	[TokenType.Call]: undefined,
 
-	[TokenType.Byte]: number,
 	[TokenType.Char]: string,
 
 
 	[TokenType.Keyword]: string
 
-	[TokenType.Any]: any
 	[TokenType.Boolean]: boolean
 	[TokenType.Name]: string
 	[TokenType.Integer]: number

@@ -317,11 +317,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 
 	// Create actual compilations for new types
 	[TokenType.Boolean](compiler, { value }) { `\tpush ${value ? 1 : 0}\n`; },
-	[TokenType.Any](compiler) { },
-	[TokenType.Pointer](compiler) { },
-	[TokenType.FunctionPointer](compiler) { },
-	[TokenType.MemoryRegion](compiler) { },
-	[TokenType.Syscode](compiler) { },
 	[TokenType.Call](compiler) {
 		compiler.assemblySource += `\t${compiler.stackFunctionCall}\n`;
 		return;
@@ -422,9 +417,6 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 		}
 	},
-	[TokenType.FileDescriptor](compiler) { },
-	[TokenType.Char](compiler, { value }) { },
-	[TokenType.Byte](compiler, { value }) { },
 	[TokenType.ComparisonOperator](compiler, { value }) {
 		switch (value) {
 			case '>=':
@@ -449,7 +441,9 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 				return;
 
 		}
-	}
+	},
+	[TokenType.Char]: undefined,
+	[TokenType.Syscode]: undefined
 }
 export class Compiler {
 	static fromSource(sourcePath: string): Compiler {
