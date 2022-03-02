@@ -3,8 +3,9 @@
     "scripts": {
         "build": "tsc",
         "watchBuild": "tsc -w",
-        "compile": "npm run build && node . ",
-        "watchCompile": "nodemon --exec 'npm run build && node .' --watch ./ts -e ts --"
+
+        "toast": "npm -s run build; node .",
+        "toastWatch": "nodemon -x 'npm run toast -s' -e toast,ts"
     },
     "devDependencies": {
         "nodemon": "^2.0.15",
