@@ -18,8 +18,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - uses: ilammy/setup-nasm@v1
-      - uses: actions/setup-node@v2
-        with:
-          node-version: "14"
-      - run: npm i; npm --prefix bootstrap i; npm run toast test/test
+        
+      - name: Setup NASM
+        run: brew install nasm
+        
+      - name: Install node modules
+        run: npm --prefix bootstrap i;
+        
+      - name: Run tests
+      - run: npm run toast test/test
