@@ -454,15 +454,18 @@ const compilerProcessor: TokenProcessor<Compiler> = {
 export class Compiler {
 	static fromSource(sourcePath: string): Compiler {
 		const c = new Compiler();
-		// Only strip toast extensions
-		// const toastExtension = ToastExtensions.find((ext) => sourcePath.endsWith(ext))
-		// const sourceBasename = toastExtension? sourcePath.substring(0,-toastExtension.length):sourcePath
 
-		const extension = path.extname(sourcePath).substring(1)
-		const toastExtension = ToastExtensions.indexOf(extension)
-		const sourceBasename = toastExtension != -1 ?
-			path.join(path.dirname(sourcePath), path.basename(sourcePath, `.${ToastExtensions[toastExtension]}`)) :
-			sourcePath
+		let sourceBasename: string
+		if (CompilerOptions[Options.OutputFile] == null) {
+			const extension = path.extname(sourcePath).substring(1)
+
+			const toastExtension = ToastExtensions.indexOf(extension)
+			sourceBasename = toastExtension != -1 ?
+				path.join(path.dirname(sourcePath), path.basename(sourcePath, `.${ToastExtensions[toastExtension]}`)) :
+				sourcePath
+		} else {
+			sourceBasename = CompilerOptions[Options.OutputFile];
+		}
 
 		c.source = new LexerSourceFile(sourcePath)
 		c.outputBasename = path.resolve(CompilerOptions[Options.OutputDirectory], sourceBasename)

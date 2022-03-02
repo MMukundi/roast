@@ -27,7 +27,7 @@ export enum Flags {
 
 /** The compiler options, after parsing inputs from the command line  */
 export const CompilerOptions: Record<Options, string> = {
-	[Options.OutputFile]: "./out",
+	[Options.OutputFile]: null,
 	[Options.OutputDirectory]: "./",
 }
 
