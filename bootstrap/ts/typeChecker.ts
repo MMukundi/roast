@@ -1,6 +1,7 @@
 import { errorLogger } from "./loggers"
 import { Compiler } from "./parser"
 import { Token, ToastType, SourceLocation } from "./tokens"
+import { Type } from "./types"
 import { TypeConstraint, SpecificTypeConstraint, TypeNames, Signature, NameMap, BuiltInFunctionSignature, TokenConstraint, NameConstraint } from "./types"
 
 interface CheckerScope {
@@ -10,8 +11,8 @@ interface CheckerScope {
 
 export class TypeChecker {
 	static CommandLineArguments = [
-		new SpecificTypeConstraint({ sourceName: "Command arguments", line: 0, column: 0 }, ToastType.Pointer),
-		new SpecificTypeConstraint({ sourceName: "Command argument count", line: 0, column: 0 }, ToastType.Integer),
+		new SpecificTypeConstraint({ sourceName: "Command arguments", line: 0, column: 0 }, Type.Pointer),
+		new SpecificTypeConstraint({ sourceName: "Command argument count", line: 0, column: 0 }, Type.Integer),
 	]
 	getInputLocation(index: number): SourceLocation {
 		return this.getCurrentScope().inputsNeeded[index].location
@@ -147,13 +148,13 @@ export class TypeChecker {
 					break;
 				case ToastType.MathOperator:
 					this.apply({
-						inputs: [new SpecificTypeConstraint(token.location, ToastType.Integer), new SpecificTypeConstraint(token.location, ToastType.Integer)],
-						outputs: [new SpecificTypeConstraint(token.location, ToastType.Integer)]
+						inputs: [new SpecificTypeConstraint(token.location, Type.Integer), new SpecificTypeConstraint(token.location, Type.Integer)],
+						outputs: [new SpecificTypeConstraint(token.location, Type.Integer)]
 					})
 					break;
 				case ToastType.String:
 					typeStack.push(new TokenConstraint({ ...token, type: ToastType.StringPointer }, this.nameMap))
-					typeStack.push(new SpecificTypeConstraint(token.location, ToastType.Integer))
+					typeStack.push(new SpecificTypeConstraint(token.location, Type.Integer))
 					break;
 				default:
 					typeStack.push(new TokenConstraint(token, this.nameMap))
