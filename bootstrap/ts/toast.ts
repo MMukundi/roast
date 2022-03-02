@@ -31,15 +31,17 @@ compiler.generateAssembly()
 compiler.write("\ttoastExit 0\n")
 compiler.save()
 compiler.compile(CompilerFlags[Flags.EmitPreprocessed])
-try {
-	compiler.run()
-} catch (e) {
-	const error = e as any
-	const pref = '\t> '
-	errorLogger.flushLog(`------------Run Failed----------------`)
-	errorLogger.flushLog(`${pref}File: ${compiler.source.name} `)
-	errorLogger.flushLog(`${pref}Exit Code: ${error.status} `)
-	errorLogger.flushLog(`${pref}Exit Signal: ${error.signal} `)
-	errorLogger.flushLog(`${pref}Exit output: ${error.stderr?.toString() || "N/A"} `)
-	process.exit(error.status)
+if (CompilerFlags[Flags.RunAfterCompile]) {
+	try {
+		compiler.run()
+	} catch (e) {
+		const error = e as any
+		const pref = '\t> '
+		errorLogger.flushLog(`------------Run Failed----------------`)
+		errorLogger.flushLog(`${pref}File: ${compiler.source.name} `)
+		errorLogger.flushLog(`${pref}Exit Code: ${error.status} `)
+		errorLogger.flushLog(`${pref}Exit Signal: ${error.signal} `)
+		errorLogger.flushLog(`${pref}Exit output: ${error.stderr?.toString() || "N/A"} `)
+		process.exit(error.status)
+	}
 }

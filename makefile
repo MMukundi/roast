@@ -19,9 +19,9 @@ TOASTFLAGS = -od bin
 	echo "::endgroup::"
 
 %$(TEST_RUN_SUFFIX): %$(TEST_SUFFIX)
-	# echo "::group::Run $^"
-	# ../bin/$^
-	# echo "::endgroup::"
+	echo "::group::Run $^"
+	./bin/$^
+	echo "::endgroup::"
 
 mkdir_bin: 
 	mkdir -p bin/$(TEST_DIR)
