@@ -1,6 +1,7 @@
 import { errorLogger } from "./loggers"
 import { Compiler } from "./parser"
-import { Token, ToastType, SourceLocation } from "./tokens"
+import { Token, TokenType, SourceLocation } from "./tokens"
+import { Type } from "./types"
 import { TypeConstraint, SpecificTypeConstraint, TypeNames, Signature, NameMap, BuiltInFunctionSignature, TokenConstraint, NameConstraint } from "./types"
 
 interface CheckerScope {
@@ -10,8 +11,8 @@ interface CheckerScope {
 
 export class TypeChecker {
 	static CommandLineArguments = [
-		new SpecificTypeConstraint({ sourceName: "Command arguments", line: 0, column: 0 }, ToastType.Pointer),
-		new SpecificTypeConstraint({ sourceName: "Command argument count", line: 0, column: 0 }, ToastType.Integer),
+		new SpecificTypeConstraint({ sourceName: "Command arguments", line: 0, column: 0 }, Type.Pointer),
+		new SpecificTypeConstraint({ sourceName: "Command argument count", line: 0, column: 0 }, Type.Integer),
 	]
 	getInputLocation(index: number): SourceLocation {
 		return this.getCurrentScope().inputsNeeded[index].location
@@ -76,9 +77,9 @@ export class TypeChecker {
 		let lastToken = null
 		let lastLastToken = null
 		for (let token of tokens) {
-			if (lastToken?.type === ToastType.Name) {
+			if (lastToken?.type === TokenType.Name) {
 				const nameToken: Token = lastToken;
-				if (token && token.type == ToastType.Keyword && token.value == "def") {
+				if (token && token.type == TokenType.Keyword && token.value == "def") {
 					// Removing variable name from stack
 					typeStack.pop()
 					const valueType = typeStack.pop()
@@ -108,12 +109,12 @@ export class TypeChecker {
 
 
 			switch (token.type) {
-				case ToastType.Call:
+				case TokenType.Call:
 					const valueType = typeStack.pop();
 					console.log(valueType)
 					const functionToken = valueType.getToken()
 
-					if (functionToken?.type == ToastType.CodeBlock) {
+					if (functionToken?.type == TokenType.CodeBlock) {
 						const functionSignature = this.blockTypes[functionToken.value.index]
 						this.apply(functionSignature)
 
@@ -130,14 +131,14 @@ export class TypeChecker {
 					}
 
 					break;
-				case ToastType.BuiltInFunction:
+				case TokenType.BuiltInFunction:
 					this.apply(BuiltInFunctionSignature[token.value](this, token.location))
 
 					break;
-				case ToastType.Name:
+				case TokenType.Name:
 					typeStack.push(new NameConstraint(token, this.nameMap))
 					break;
-				case ToastType.CodeBlock:
+				case TokenType.CodeBlock:
 					if (!this.blockTypes[token.value.index]) {
 						this.addScope()
 						this.blockTypes[token.value.index] = this.typeCheck(token.value.tokens);
@@ -145,15 +146,15 @@ export class TypeChecker {
 					}
 					typeStack.push(new TokenConstraint(token, this.nameMap))
 					break;
-				case ToastType.MathOperator:
+				case TokenType.MathOperator:
 					this.apply({
-						inputs: [new SpecificTypeConstraint(token.location, ToastType.Integer), new SpecificTypeConstraint(token.location, ToastType.Integer)],
-						outputs: [new SpecificTypeConstraint(token.location, ToastType.Integer)]
+						inputs: [new SpecificTypeConstraint(token.location, Type.Integer), new SpecificTypeConstraint(token.location, Type.Integer)],
+						outputs: [new SpecificTypeConstraint(token.location, Type.Integer)]
 					})
 					break;
-				case ToastType.String:
-					typeStack.push(new TokenConstraint({ ...token, type: ToastType.StringPointer }, this.nameMap))
-					typeStack.push(new SpecificTypeConstraint(token.location, ToastType.Integer))
+				case TokenType.String:
+					typeStack.push(new TokenConstraint({ ...token, type: TokenType.StringPointer }, this.nameMap))
+					typeStack.push(new SpecificTypeConstraint(token.location, Type.Integer))
 					break;
 				default:
 					typeStack.push(new TokenConstraint(token, this.nameMap))

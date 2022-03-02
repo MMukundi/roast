@@ -5,7 +5,8 @@
     "main": "index.js",
     "scripts": {
         "toast": "npm -s --prefix bootstrap run build; node bootstrap",
-        "toastWatch": "nodemon -x 'npm run toast -s' -e toast,ts"
+        "toastWatch": "nodemon -x 'npm run toast -s' -e toast,ts",
+        "test": "make check -k -B"
     },
     "keywords": [
         "concatenative",

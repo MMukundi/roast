@@ -26,4 +26,4 @@ jobs:
         run: npm --prefix bootstrap i; npm i
 
       - name: Run tests
-        run: make check -k -B
+        run: npm test
