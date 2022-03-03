@@ -2,9 +2,9 @@ import assert from "assert"
 import { readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
+import { BuiltInFunctionSignature } from "./builtIns"
 import { errorLogger } from "./loggers"
 import { makeToken, SourceLocation, Token, TokenType, TokenValues } from "./tokens"
-import { BuiltInFunctionSignature } from "./types"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */

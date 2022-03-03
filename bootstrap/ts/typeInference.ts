@@ -3,12 +3,12 @@ import { SpecificTypeConstraint, Type, TypeNames } from "./types"
 type TypeVariableType = string
 type Substitution = Map<TypeVariableType, TypeExpression>
 type Environment = Map<TypeVariableType, Scheme>
-abstract class Substitutable<T> {
+export abstract class Substitutable<T> {
 	constructor() { }
 	abstract substitute(s: Substitution): T
 	abstract freeTypeVariables(): Set<TypeVariableType>
 }
-const enum ExpressionType {
+export const enum ExpressionType {
 	Variable,
 	Function,
 	Constant,
@@ -16,7 +16,7 @@ const enum ExpressionType {
 	Sequence
 }
 
-class Scheme extends Substitutable<Scheme> {
+export class Scheme extends Substitutable<Scheme> {
 	constructor(public vars: string[], public type: TypeExpression) {
 		super()
 	}
@@ -35,7 +35,7 @@ class Scheme extends Substitutable<Scheme> {
 		return `Forall ${this.vars.join(",")}.${this.type.toString()}`
 	}
 }
-class TypeEnvironment extends Substitutable<TypeEnvironment> {
+export class TypeEnvironment extends Substitutable<TypeEnvironment> {
 	constructor(private map: Environment = new Map()) {
 		super()
 	}
@@ -60,7 +60,7 @@ class TypeEnvironment extends Substitutable<TypeEnvironment> {
 		return new TypeEnvironment(new Map(this.map).set(variable, scheme))
 	}
 }
-abstract class TypeExpression extends Substitutable<TypeExpression> {
+export abstract class TypeExpression extends Substitutable<TypeExpression> {
 	constructor(public expressionType: ExpressionType) {
 		super()
 	}
@@ -76,7 +76,7 @@ abstract class TypeExpression extends Substitutable<TypeExpression> {
 	}
 	abstract toString(): string
 }
-class TypeVariable extends TypeExpression {
+export class TypeVariable extends TypeExpression {
 	constructor(public variable: TypeVariableType) {
 		super(ExpressionType.Variable)
 	}
@@ -95,7 +95,7 @@ class TypeVariable extends TypeExpression {
 		return new TypeVariable((this.prev++).toString())
 	}
 }
-class TypeFunction extends TypeExpression {
+export class TypeFunction extends TypeExpression {
 	constructor(public input: TypeExpression, public output: TypeExpression) {
 		super(ExpressionType.Function)
 	}
@@ -112,7 +112,7 @@ class TypeFunction extends TypeExpression {
 		return `(${this.input})->(${this.output})`
 	}
 }
-class ConstantType extends TypeExpression {
+export class ConstantType extends TypeExpression {
 	constructor(public type: Type) {
 		super(ExpressionType.Constant)
 	}
@@ -134,4 +134,4 @@ function deleteAll<T>(original: Iterable<T>, toDelete: Iterable<T>): Set<T> {
 	}
 	return difference
 }
-export interface Signature { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }
+export interface Signature { inputs: TypeExpression[], outputs: TypeExpression[] }

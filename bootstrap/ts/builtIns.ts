@@ -1,219 +1,218 @@
 import { SourceLocation } from "./tokens";
 import { TypeChecker } from "./typeChecker";
-import { Signature } from "./typeInference";
-import { SpecificTypeConstraint, Type } from "./types";
+import { ConstantType, Signature } from "./typeInference";
+import { Type } from "./types";
 
-export const BuiltInFunctionSignature: Record<string, (type: TypeChecker, location: SourceLocation) => Signature> = {
+export const BuiltInFunctionSignature: Record<string, Signature> = {
 	/// StackOps
 
 	// ...rest, b -> ...rest
-	'pop':
-		(t, location) => ({
-			inputs: [new SpecificTypeConstraint(location, Type.Any)],
-			outputs: []
-		}),
+	'pop': {
+		inputs: [new ConstantType(Type.Any)],
+		outputs: []
+	},
 
 	// TODO! Variadic number of inputs
-	'popN': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Any)],
+	'popN': {
+		inputs: [new ConstantType(Type.Any)],
 		outputs: []
-	}),
+	},
 
-	'swap': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Any), new SpecificTypeConstraint(location, Type.Any)],
-		outputs: [new SpecificTypeConstraint(location, Type.Any), new SpecificTypeConstraint(location, Type.Any)]
-	}),
-	'dup': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Any)],
-		outputs: [new SpecificTypeConstraint(location, Type.Any), new SpecificTypeConstraint(location, Type.Any)]
-	}),
+	'swap': {
+		inputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)],
+		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
+	},
+	'dup': {
+		inputs: [new ConstantType(Type.Any)],
+		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
+	},
 
 	// -- ROLL --
-	'roll': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Any)],
-		outputs: [new SpecificTypeConstraint(location, Type.Any), new SpecificTypeConstraint(location, Type.Any)]
-	}),
+	'roll': {
+		inputs: [new ConstantType(Type.Any)],
+		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
+	},
 
-	'close': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor)],
+	'close': {
+		inputs: [new ConstantType(Type.FileDescriptor)],
 		outputs: []
-	}),
+	},
 
-	'readOpen': (t, location) => ({
+	'readOpen': {
 		inputs: [],
-		outputs: [new SpecificTypeConstraint(location, Type.FileDescriptor)]
-	}),
-	'writeOpen': (t, location) => ({
+		outputs: [new ConstantType(Type.FileDescriptor)]
+	},
+	'writeOpen': {
 		inputs: [],
-		outputs: [new SpecificTypeConstraint(location, Type.FileDescriptor)]
-	}),
+		outputs: [new ConstantType(Type.FileDescriptor)]
+	},
 
-	'readFile': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor)],
-		outputs: [new SpecificTypeConstraint(location, Type.MemoryRegion), new SpecificTypeConstraint(location, Type.Integer)]
-	}),
-	'readFileTo': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.MemoryRegion), new SpecificTypeConstraint(location, Type.FileDescriptor)],
-		outputs: [new SpecificTypeConstraint(location, Type.Integer)]
-	}),
+	'readFile': {
+		inputs: [new ConstantType(Type.FileDescriptor)],
+		outputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.Integer)]
+	},
+	'readFileTo': {
+		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.FileDescriptor)],
+		outputs: [new ConstantType(Type.Integer)]
+	},
 
-	'array': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Array)]
-	}),
+	'array': {
+		inputs: [new ConstantType(Type.Integer)],
+		outputs: [new ConstantType(Type.Array)]
+	},
 
-	'buffer': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
-		outputs: [new SpecificTypeConstraint(location, Type.MemoryRegion)]
-	}),
+	'buffer': {
+		inputs: [new ConstantType(Type.Integer)],
+		outputs: [new ConstantType(Type.MemoryRegion)]
+	},
 
-	'length': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Array)],
-		outputs: [new SpecificTypeConstraint(location, Type.Integer)]
-	}),
+	'length': {
+		inputs: [new ConstantType(Type.Array)],
+		outputs: [new ConstantType(Type.Integer)]
+	},
 
-	'print': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.StringPointer)],
+	'print': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)],
 		outputs: []
-	}),
+	},
 
-	'fprint': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor), new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.StringPointer)],
+	'fprint': {
+		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)],
 		outputs: []
-	}),
+	},
 
 	// TODO! Variadic typing for printf
-	'printf': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer)],
+	'printf': {
+		inputs: [new ConstantType(Type.StringPointer)],
 		outputs: []
-	}),
-	'fprintf': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor), new SpecificTypeConstraint(location, Type.StringPointer)],
+	},
+	'fprintf': {
+		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.StringPointer)],
 		outputs: []
-	}),
+	},
 
-	'sprintf': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.StringPointer)]
-	}),
+	'sprintf': {
+		inputs: [new ConstantType(Type.StringPointer)],
+		outputs: [new ConstantType(Type.StringPointer)]
+	},
 
-	'input': (t, location) => ({
+	'input': {
 		inputs: [],
-		outputs: [new SpecificTypeConstraint(location, Type.StringPointer)]
-	}),
+		outputs: [new ConstantType(Type.StringPointer)]
+	},
 
-	'filePrintNum': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor), new SpecificTypeConstraint(location, Type.Integer)],
+	'filePrintNum': {
+		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer)],
 		outputs: []
-	}),
-	'printNum': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
+	},
+	'printNum': {
+		inputs: [new ConstantType(Type.Integer)],
 		outputs: []
-	}),
-	'filePrintNumBase': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.FileDescriptor), new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Integer)],
+	},
+	'filePrintNumBase': {
+		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.Integer)],
 		outputs: []
-	}),
-	'printNumBase': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Integer)],
+	},
+	'printNumBase': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Integer)],
 		outputs: []
-	}),
+	},
 
-	'strEq': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer), new SpecificTypeConstraint(location, Type.StringPointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Boolean)]
-	}),
+	'strEq': {
+		inputs: [new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)],
+		outputs: [new ConstantType(Type.Boolean)]
+	},
 
-	'strLen': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Integer)]
-	}),
+	'strLen': {
+		inputs: [new ConstantType(Type.StringPointer)],
+		outputs: [new ConstantType(Type.Integer)]
+	},
 
 	// TODO! Variadic typing for copy
-	'copy': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
+	'copy': {
+		inputs: [new ConstantType(Type.Integer)],
 		outputs: []
-	}),
+	},
 
 	// TODO! Variadic typing for index
-	'index': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
+	'index': {
+		inputs: [new ConstantType(Type.Integer)],
 		outputs: []
-	}),
+	},
 
-	'strCopy': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer), new SpecificTypeConstraint(location, Type.StringPointer)],
+	'strCopy': {
+		inputs: [new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)],
 		outputs: []
-	}),
-	'memCopy': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.MemoryRegion), new SpecificTypeConstraint(location, Type.MemoryRegion)],
+	},
+	'memCopy': {
+		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)],
 		outputs: []
-	}),
+	},
 
 	// TODO! Typing for bytes vs values
-	'memCopyByte': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.MemoryRegion), new SpecificTypeConstraint(location, Type.MemoryRegion)],
+	'memCopyByte': {
+		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)],
 		outputs: []
-	}),
+	},
 
-	'exit': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
+	'exit': {
+		inputs: [new ConstantType(Type.Integer)],
 		outputs: []
-	}),
+	},
 
 	// TODO! Change to 'type that can convert to pointer'
-	'getPtr': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Pointer)]
-	}),
+	'getPtr': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Pointer)]
+	},
 	// TODO! More specific than any?
-	'get': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Any)]
-	}),
-	'set': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer), new SpecificTypeConstraint(location, Type.Any)],
+	'get': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Any)]
+	},
+	'set': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Any)],
 		outputs: []
-	}),
-	'read': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Any)]
-	}),
-	'write': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Pointer), new SpecificTypeConstraint(location, Type.Any)],
+	},
+	'read': {
+		inputs: [new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Any)]
+	},
+	'write': {
+		inputs: [new ConstantType(Type.Pointer), new ConstantType(Type.Any)],
 		outputs: []
-	}),
+	},
 
 	// TODO! Change to 'type that can convert to pointer'
 	// TODO! Typing for bytes vs values
-	'getBytePtr': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Pointer)]
-	}),
+	'getBytePtr': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Pointer)]
+	},
 	// TODO! More specific than any?
-	'getByte': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Byte)]
-	}),
-	'setByte': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.Pointer), new SpecificTypeConstraint(location, Type.Byte)],
+	'getByte': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Byte)]
+	},
+	'setByte': {
+		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Byte)],
 		outputs: []
-	}),
-	'readByte': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Pointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Byte)]
-	}),
-	'writeByte': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Pointer), new SpecificTypeConstraint(location, Type.Byte)],
+	},
+	'readByte': {
+		inputs: [new ConstantType(Type.Pointer)],
+		outputs: [new ConstantType(Type.Byte)]
+	},
+	'writeByte': {
+		inputs: [new ConstantType(Type.Pointer), new ConstantType(Type.Byte)],
 		outputs: []
-	}),
+	},
 
-	'intToString': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Integer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Integer), new SpecificTypeConstraint(location, Type.StringPointer)]
-	}),
-	'stringToInt': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.StringPointer)],
-		outputs: [new SpecificTypeConstraint(location, Type.Integer)]
-	}),
+	'intToString': {
+		inputs: [new ConstantType(Type.Integer)],
+		outputs: [new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]
+	},
+	'stringToInt': {
+		inputs: [new ConstantType(Type.StringPointer)],
+		outputs: [new ConstantType(Type.Integer)]
+	},
 }
