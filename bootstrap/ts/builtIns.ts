@@ -1,218 +1,218 @@
 import { SourceLocation } from "./tokens";
 import { TypeChecker } from "./typeChecker";
-import { ConstantType, Signature } from "./typeInference";
+import { ConstantType, Scheme, SequenceType, Signature, TypeFunction } from "./typeInference";
 import { Type } from "./types";
 
-export const BuiltInFunctionSignature: Record<string, Signature> = {
+export const BuiltInFunctionSignature: Record<string, Scheme> = {
 	/// StackOps
 
 	// ...rest, b -> ...rest
-	'pop': {
-		inputs: [new ConstantType(Type.Any)],
-		outputs: []
-	},
+	'pop': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Variadic number of inputs
-	'popN': {
-		inputs: [new ConstantType(Type.Any)],
-		outputs: []
-	},
+	'popN': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([])
+	).generalize(),
 
-	'swap': {
-		inputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)],
-		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
-	},
-	'dup': {
-		inputs: [new ConstantType(Type.Any)],
-		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
-	},
+	'swap': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)]),
+		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+	).generalize(),
+	'dup': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+	).generalize(),
 
 	// -- ROLL --
-	'roll': {
-		inputs: [new ConstantType(Type.Any)],
-		outputs: [new ConstantType(Type.Any), new ConstantType(Type.Any)]
-	},
+	'roll': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+	).generalize(),
 
-	'close': {
-		inputs: [new ConstantType(Type.FileDescriptor)],
-		outputs: []
-	},
+	'close': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor)]),
+		new SequenceType([])
+	).generalize(),
 
-	'readOpen': {
-		inputs: [],
-		outputs: [new ConstantType(Type.FileDescriptor)]
-	},
-	'writeOpen': {
-		inputs: [],
-		outputs: [new ConstantType(Type.FileDescriptor)]
-	},
+	'readOpen': new TypeFunction(
+		new SequenceType([]),
+		new SequenceType([new ConstantType(Type.FileDescriptor)])
+	).generalize(),
+	'writeOpen': new TypeFunction(
+		new SequenceType([]),
+		new SequenceType([new ConstantType(Type.FileDescriptor)])
+	).generalize(),
 
-	'readFile': {
-		inputs: [new ConstantType(Type.FileDescriptor)],
-		outputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.Integer)]
-	},
-	'readFileTo': {
-		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.FileDescriptor)],
-		outputs: [new ConstantType(Type.Integer)]
-	},
+	'readFile': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor)]),
+		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.Integer)])
+	).generalize(),
+	'readFileTo': new TypeFunction(
+		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.FileDescriptor)]),
+		new SequenceType([new ConstantType(Type.Integer)])
+	).generalize(),
 
-	'array': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: [new ConstantType(Type.Array)]
-	},
+	'array': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([new ConstantType(Type.Array)])
+	).generalize(),
 
-	'buffer': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: [new ConstantType(Type.MemoryRegion)]
-	},
+	'buffer': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([new ConstantType(Type.MemoryRegion)])
+	).generalize(),
 
-	'length': {
-		inputs: [new ConstantType(Type.Array)],
-		outputs: [new ConstantType(Type.Integer)]
-	},
+	'length': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Array)]),
+		new SequenceType([new ConstantType(Type.Integer)])
+	).generalize(),
 
-	'print': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)],
-		outputs: []
-	},
+	'print': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([])
+	).generalize(),
 
-	'fprint': {
-		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)],
-		outputs: []
-	},
+	'fprint': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Variadic typing for printf
-	'printf': {
-		inputs: [new ConstantType(Type.StringPointer)],
-		outputs: []
-	},
-	'fprintf': {
-		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.StringPointer)],
-		outputs: []
-	},
+	'printf': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer)]),
+		new SequenceType([])
+	).generalize(),
+	'fprintf': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.StringPointer)]),
+		new SequenceType([])
+	).generalize(),
 
-	'sprintf': {
-		inputs: [new ConstantType(Type.StringPointer)],
-		outputs: [new ConstantType(Type.StringPointer)]
-	},
+	'sprintf': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.StringPointer)])
+	).generalize(),
 
-	'input': {
-		inputs: [],
-		outputs: [new ConstantType(Type.StringPointer)]
-	},
+	'input': new TypeFunction(
+		new SequenceType([]),
+		new SequenceType([new ConstantType(Type.StringPointer)])
+	).generalize(),
 
-	'filePrintNum': {
-		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer)],
-		outputs: []
-	},
-	'printNum': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: []
-	},
-	'filePrintNumBase': {
-		inputs: [new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.Integer)],
-		outputs: []
-	},
-	'printNumBase': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Integer)],
-		outputs: []
-	},
+	'filePrintNum': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
+	'printNum': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
+	'filePrintNumBase': new TypeFunction(
+		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
+	'printNumBase': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
 
-	'strEq': {
-		inputs: [new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)],
-		outputs: [new ConstantType(Type.Boolean)]
-	},
+	'strEq': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.Boolean)])
+	).generalize(),
 
-	'strLen': {
-		inputs: [new ConstantType(Type.StringPointer)],
-		outputs: [new ConstantType(Type.Integer)]
-	},
+	'strLen': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.Integer)])
+	).generalize(),
 
 	// TODO! Variadic typing for copy
-	'copy': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: []
-	},
+	'copy': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Variadic typing for index
-	'index': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: []
-	},
+	'index': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
 
-	'strCopy': {
-		inputs: [new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)],
-		outputs: []
-	},
-	'memCopy': {
-		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)],
-		outputs: []
-	},
+	'strCopy': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([])
+	).generalize(),
+	'memCopy': new TypeFunction(
+		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Typing for bytes vs values
-	'memCopyByte': {
-		inputs: [new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)],
-		outputs: []
-	},
+	'memCopyByte': new TypeFunction(
+		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)]),
+		new SequenceType([])
+	).generalize(),
 
-	'exit': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: []
-	},
+	'exit': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Change to 'type that can convert to pointer'
-	'getPtr': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Pointer)]
-	},
+	'getPtr': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Pointer)])
+	).generalize(),
 	// TODO! More specific than any?
-	'get': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Any)]
-	},
-	'set': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Any)],
-		outputs: []
-	},
-	'read': {
-		inputs: [new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Any)]
-	},
-	'write': {
-		inputs: [new ConstantType(Type.Pointer), new ConstantType(Type.Any)],
-		outputs: []
-	},
+	'get': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Any)])
+	).generalize(),
+	'set': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Any)]),
+		new SequenceType([])
+	).generalize(),
+	'read': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Any)])
+	).generalize(),
+	'write': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Any)]),
+		new SequenceType([])
+	).generalize(),
 
 	// TODO! Change to 'type that can convert to pointer'
 	// TODO! Typing for bytes vs values
-	'getBytePtr': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Pointer)]
-	},
+	'getBytePtr': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Pointer)])
+	).generalize(),
 	// TODO! More specific than any?
-	'getByte': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Byte)]
-	},
-	'setByte': {
-		inputs: [new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Byte)],
-		outputs: []
-	},
-	'readByte': {
-		inputs: [new ConstantType(Type.Pointer)],
-		outputs: [new ConstantType(Type.Byte)]
-	},
-	'writeByte': {
-		inputs: [new ConstantType(Type.Pointer), new ConstantType(Type.Byte)],
-		outputs: []
-	},
+	'getByte': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Byte)])
+	).generalize(),
+	'setByte': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Byte)]),
+		new SequenceType([])
+	).generalize(),
+	'readByte': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Byte)])
+	).generalize(),
+	'writeByte': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Byte)]),
+		new SequenceType([])
+	).generalize(),
 
-	'intToString': {
-		inputs: [new ConstantType(Type.Integer)],
-		outputs: [new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]
-	},
-	'stringToInt': {
-		inputs: [new ConstantType(Type.StringPointer)],
-		outputs: [new ConstantType(Type.Integer)]
-	},
+	'intToString': new TypeFunction(
+		new SequenceType([new ConstantType(Type.Integer)]),
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)])
+	).generalize(),
+	'stringToInt': new TypeFunction(
+		new SequenceType([new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.Integer)])
+	).generalize(),
 }
