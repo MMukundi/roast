@@ -1,7 +1,4 @@
-import exp from "constants"
-import { LexerSource } from "./lexer"
-import { Compiler } from "./parser"
-import { Token, SourceLocation, TokenType } from "./tokens"
+import { SourceLocation } from "./tokens"
 import { TypeChecker } from "./typeChecker"
 
 export enum Type {
@@ -245,210 +242,25 @@ export class Operator {
 		"~": `toastStackComputeOne not`,
 	}
 }
-
-export type NameMap = Record<string, TypeConstraint>
-
-export abstract class TypeConstraint {
-	constructor(public location: SourceLocation) { }
-	abstract getToken(): Token | null
-	abstract getType(): SpecificTypeConstraint
-	abstract canConvertTo(type: Type): boolean;
-	abstract canMatch(type: TypeConstraint): boolean;
-}
-
-export class GenericTypeConstraint extends TypeConstraint {
-	canMatch(type: TypeConstraint): boolean {
-		throw new Error("Method not implemented.")
-	}
-	static potentialTypes: Record<string, Set<TypeConstraint>> = {}
-	constructor(location: SourceLocation, public name: string) {
-		super(location);
-		if (!GenericTypeConstraint.potentialTypes[name]) {
-			GenericTypeConstraint.restrict(this.name, AllTypes.map(x => new SpecificTypeConstraint(location, x)))
-		}
-	}
-
-	static restrict(name: string, types: Iterable<TypeConstraint>) {
-		const newTypes = new Set(types)
-		if (this.potentialTypes[name]) {
-			this.potentialTypes[name] = new Set([...this.potentialTypes[name]].filter(i => newTypes.has(i)))
-		} else {
-			this.potentialTypes[name] = newTypes
-		}
-	}
-	static reset() {
-		this.potentialTypes = {}
-	}
-
-	getToken(): Token {
-		return null;
-	}
-	getType(): SpecificTypeConstraint {
-		throw new Error("Method not implemented.")
-	}
-	canConvertTo(type: Type): boolean {
-		if (type == Type.Any) return true;
-		const newTypes = new Set<TypeConstraint>()
-		for (const potentialType of GenericTypeConstraint.potentialTypes[this.name]) {
-			if (potentialType.canConvertTo(type)) {
-				for (const otherType of toastImplicitConversions.get(potentialType.getType().type)) {
-					newTypes.add(new SpecificTypeConstraint(this.location, otherType))
-				}
-			}
-		}
-		GenericTypeConstraint.restrict(this.name, newTypes)
-		return newTypes.size > 0
-	}
-}
-
-export class SpecificTypeConstraint extends TypeConstraint {
-
+export class SpecificTypeConstraint {
 	constructor(location: SourceLocation, public type: Type) {
-		super(location);
-	}
-
-	canMatch(type: TypeConstraint): boolean {
-		return this.canConvertTo(type.getType().type)
-	}
-	canConvertTo(type: Type): boolean {
-		return this.type == Type.Any || toastImplicitConversions.get(this.type).has(type)
-	}
-	getToken(): Token | null {
-		return null;
-	}
-	getType(): SpecificTypeConstraint {
-		return this;
+		throw "SpecificTypeConstraint is deprecated."
 	}
 }
 
-export abstract class ToastTypeConstraint extends TypeConstraint {
-	abstract getType(): SpecificTypeConstraint
-	canConvertTo(type: Type): boolean {
-		return type == Type.Any || this.getType().canConvertTo(type)
-	}
-}
-
-export class NameConstraint extends ToastTypeConstraint {
-	canMatch(type: TypeConstraint): boolean {
-		throw new Error("Method not implemented.")
-	}
-	constructor(public nameToken: Token, public nameMap: NameMap) { super(nameToken.location) }
-
-	getType(): SpecificTypeConstraint {
-		let valueConstraint = this.nameMap[this.nameToken.value]
-		let valueToken = valueConstraint?.getToken()
-		while (valueToken?.type == TokenType.Name) {
-			valueConstraint = this.nameMap[valueToken.value]
-			valueToken = valueConstraint.getToken()
-		}
-		return valueConstraint.getType()
-	}
-
-	getToken() {
-		return this.nameToken
-		// let valueConstraint = this.nameMap[this.nameToken.value]
-		// let valueToken = valueConstraint?.getToken()
-		// while (valueToken?.type == ToastType.Name) {
-		// 	valueConstraint = this.nameMap[valueToken.value]
-		// 	valueToken = valueConstraint.getToken()
-		// }
-		// return valueToken
-	}
-}
-
-function toType(toastType: TokenType): Type {
-	switch (toastType) {
-		/** [0-9]+ */
-		case TokenType.Integer: return Type.Integer;
-
-		/** [a-zA-Z]+ */
-		case TokenType.Name: return Type.Any;
-
-		/** true, false */
-		case TokenType.Boolean: return Type.Boolean;
-
-		/** "^["]+" */
-		case TokenType.String: return Type.String;
-
-		/** "^["]+" */
-		case TokenType.StringPointer: return Type.StringPointer;
-
-		/** [ ...Tokens ] */
-		case TokenType.Array: return Type.Array;
-
-		/** { ...Tokens } */
-		case TokenType.CodeBlock: return Type.CodeBlock;
-
-		/** A system code */
-		case TokenType.Syscode: return Type.Syscode;
-
-		/** for, if, else, ... */
-		case TokenType.Keyword: return Type.Keyword;
-
-		/** >>, << */
-		case TokenType.ShiftOperator: return Type.ShiftOperator;
-
-		/** +, -, *, /, % */
-		case TokenType.MathOperator: return Type.MathOperator;
-
-		/** &, |, ~ */
-		case TokenType.BitwiseOperator: return Type.BitwiseOperator;
-
-		/** &&, ||, ! */
-		case TokenType.LogicOperator: return Type.LogicOperator;
-
-		/** >=, <=, >, <, =, != */
-		case TokenType.ComparisonOperator: return Type.ComparisonOperator;
-
-		/** call */
-		case TokenType.Call: return Type.Call;
-
-		/** pop,swap,... */
-		case TokenType.BuiltInFunction: return Type.BuiltInFunction;
-
-		case TokenType.Char: return Type.Char;
-	}
-}
-
-export class TokenConstraint extends ToastTypeConstraint {
-	canMatch(type: TypeConstraint): boolean {
-		throw new Error("Method not implemented.")
-	}
-	constructor(public token: Token, public nameMap: NameMap) { super(token.location) }
-
-	getType(): SpecificTypeConstraint {
-		// return new SpecificTypeConstraint(location, This.token.type)
-		return this.token.type == TokenType.Name ? new NameConstraint(this.token, this.nameMap).getType() : new SpecificTypeConstraint(this.location, toType(this.token.type))
-	}
-	getToken(): Token {
-		// return this.token
-		return this.token.type == TokenType.Name ? new NameConstraint(this.token, this.nameMap).getToken() : this.token
-	}
-}
-export class FunctionSignatureConstraint extends ToastTypeConstraint {
-	constructor(public desiredSignature: Signature, private typeChecker: TypeChecker, location: SourceLocation) { super(location) }
-	canMatch(type: TypeConstraint): boolean {
-		throw "FunctionSignatureConstraint.canMatch is not implemented. It will likely soon be removed"
-	}
-
-	getType(): SpecificTypeConstraint {
-		return new SpecificTypeConstraint(this.location, Type.CodeBlock)
-	}
-	getToken(): Token {
-		// return this.token
-		return null
-	}
-}
 
 export interface Signature { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }
 
 
 export const BuiltInFunctionSignature: Record<string, (type: TypeChecker, location: SourceLocation) => Signature> = {
 	/// StackOps
-	'pop': (t, location) => ({
-		inputs: [new SpecificTypeConstraint(location, Type.Any)],
-		outputs: []
-	}),
+
+	// ...rest, b -> ...rest
+	'pop':
+		(t, location) => ({
+			inputs: [new SpecificTypeConstraint(location, Type.Any)],
+			outputs: []
+		}),
 
 	// TODO! Variadic number of inputs
 	'popN': (t, location) => ({
