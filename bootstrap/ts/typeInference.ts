@@ -60,6 +60,7 @@ export class TypeEnvironment extends Substitutable<TypeEnvironment> {
 		return new TypeEnvironment(new Map(this.map).set(variable, scheme))
 	}
 }
+
 export abstract class TypeExpression extends Substitutable<TypeExpression> {
 	constructor(public expressionType: ExpressionType) {
 		super()
@@ -75,6 +76,20 @@ export abstract class TypeExpression extends Substitutable<TypeExpression> {
 		return new Scheme([], this);
 	}
 	abstract toString(): string
+
+	abstract unify(other: TypeExpression): Substitution
+
+	static bind(variable: TypeVariableType, type: TypeExpression): Substitution {
+		if (type.expressionType == ExpressionType.Variable && (type as TypeVariable).variable == variable) {
+			return new Map()
+		}
+		else if (type.freeTypeVariables().has(variable)) {
+			throw "Infinite type error"
+		}
+		else {
+			return new Map([[variable, type]])
+		}
+	}
 }
 export class TypeVariable extends TypeExpression {
 	constructor(public variable: TypeVariableType) {
@@ -94,6 +109,9 @@ export class TypeVariable extends TypeExpression {
 	static fresh(): TypeVariable {
 		return new TypeVariable((this.prev++).toString())
 	}
+	override unify(other: TypeExpression): Substitution {
+		return TypeExpression.bind(this.variable, other)
+	}
 }
 export class TypeFunction extends TypeExpression {
 	constructor(public input: TypeExpression, public output: TypeExpression) {
@@ -111,7 +129,25 @@ export class TypeFunction extends TypeExpression {
 	override toString(): string {
 		return `(${this.input})->(${this.output})`
 	}
+	override unify(other: TypeExpression): Substitution {
+		if (other.expressionType === ExpressionType.Variable) return other.unify(this)
+		if (other.expressionType === ExpressionType.Function) {
+			const otherFunc = other as TypeFunction
+			const s1 = this.input.unify(otherFunc.input)
+			const s2 = this.output.substitute(s1).unify(otherFunc.output.substitute(s1))
+			return compose(s2, s1)
+		}
+		throw "Unification error"
+	}
 }
+function compose(s1: Substitution, s2: Substitution) {
+	const newS1 = new Map(s1)
+	for (const [key, val] of s2) {
+		newS1.set(key, val.substitute(s1))
+	}
+	return newS1
+}
+
 export class ConstantType extends TypeExpression {
 	constructor(public type: Type) {
 		super(ExpressionType.Constant)
@@ -124,6 +160,15 @@ export class ConstantType extends TypeExpression {
 	}
 	override toString(): string {
 		return `Const<${TypeNames[this.type]}>`
+	}
+	override unify(other: TypeExpression): Substitution {
+		if (other.expressionType === ExpressionType.Variable) return other.unify(this)
+		if (other.expressionType === ExpressionType.Constant) {
+			if (this.type == (other as ConstantType).type) {
+				return new Map()
+			}
+		}
+		throw "Unification error"
 	}
 }
 
