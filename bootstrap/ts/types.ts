@@ -428,34 +428,7 @@ export class TokenConstraint extends ToastTypeConstraint {
 export class FunctionSignatureConstraint extends ToastTypeConstraint {
 	constructor(public desiredSignature: Signature, private typeChecker: TypeChecker, location: SourceLocation) { super(location) }
 	canMatch(type: TypeConstraint): boolean {
-		const token = type.getToken()
-		if (token) {
-			if (token.type == TokenType.CodeBlock) {
-				if (this.typeChecker.blockTypes[token.value.index]) {
-					const { inputs, outputs } = this.typeChecker.blockTypes[token.value.index]
-
-					if (inputs.length < this.desiredSignature.inputs.length) {
-						this.typeChecker.logError(`Not enough input types`, type.location)
-						return false
-					}
-					if (inputs.length > this.desiredSignature.inputs.length) {
-						this.typeChecker.logError(`Too many input types`, type.location)
-						return false;
-					}
-
-					for (const expectedType of this.desiredSignature.inputs) {
-						if (!inputs[0].canConvertTo(expectedType.type)) {
-							const actualType = inputs[0].getType()
-							console.log(actualType, expectedType)
-							this.typeChecker.logError(`Cannot convert ${TypeNames[actualType?.type]} to ${TypeNames[expectedType.type]}\n\t - ${TypeNames[actualType?.type]} introduced ${LexerSource.locationString(actualType.location)}\n\t - ${TypeNames[expectedType.type]} introduced ${LexerSource.locationString(expectedType.location)}`, expectedType.location)
-						}
-						inputs.shift()
-					}
-					return true;
-				}
-			}
-		}
-
+		throw "FunctionSignatureConstraint.canMatch is not implemented. It will likely soon be removed"
 	}
 
 	getType(): SpecificTypeConstraint {

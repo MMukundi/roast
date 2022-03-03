@@ -524,8 +524,8 @@ export class Compiler {
 	generateAssembly(): boolean {
 		const tokens = this.source.getAllTokens()
 		if (CompilerFlags[Flags.TypeCheck]) {
-			const typeChecker = new TypeChecker(this)
-			const typeResults = typeChecker.typeCheck(tokens)
+			const typeChecker = new TypeChecker()
+			const typeResults = typeChecker.infer(tokens)
 			console.log(typeResults)
 		}
 
