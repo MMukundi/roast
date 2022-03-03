@@ -117,3 +117,24 @@ export function tokenString(token: Token): string {
 			return token.value as string
 	}
 }
+
+
+export const TokenTypeNames: Record<TokenType, string> = {
+	[TokenType.Syscode]: "Syscode",
+	[TokenType.MathOperator]: "MathOperator",
+	[TokenType.ShiftOperator]: "ShiftOperator",
+	[TokenType.BitwiseOperator]: "BitwiseOperator",
+	[TokenType.LogicOperator]: "LogicOperator",
+	[TokenType.ComparisonOperator]: "ComparisonOperator",
+	[TokenType.BuiltInFunction]: "BuiltInFunction",
+	[TokenType.Call]: "Call",
+	[TokenType.Char]: "Char",
+	[TokenType.Keyword]: "Keyword",
+	[TokenType.Boolean]: "Boolean",
+	[TokenType.Name]: "Name",
+	[TokenType.Integer]: "Integer",
+	[TokenType.CodeBlock]: "CodeBlock",
+	[TokenType.Array]: "Array",
+	[TokenType.String]: "String",
+	[TokenType.StringPointer]: "StringPointer",
+}
