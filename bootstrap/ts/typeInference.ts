@@ -1,4 +1,4 @@
-import { Type, TypeNames } from "./types"
+import { SpecificTypeConstraint, Type, TypeNames } from "./types"
 
 type TypeVariableType = string
 type Substitution = Map<TypeVariableType, TypeExpression>
@@ -134,3 +134,4 @@ function deleteAll<T>(original: Iterable<T>, toDelete: Iterable<T>): Set<T> {
 	}
 	return difference
 }
+export interface Signature { inputs: SpecificTypeConstraint[], outputs: SpecificTypeConstraint[] }

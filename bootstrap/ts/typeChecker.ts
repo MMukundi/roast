@@ -1,5 +1,5 @@
 import { Token } from "./tokens"
-import { Signature } from "./types"
+import { Signature } from "./typeInference"
 
 class TypeCheckerNotYetImplementedError extends Error {
 	constructor(featureName: string) {
