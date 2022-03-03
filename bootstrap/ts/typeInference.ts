@@ -117,9 +117,13 @@ export class TypeVariable extends TypeExpression {
 		return `${this.variable}`
 	}
 
+	static fromInt(int: number) {
+		return new TypeVariable(`${int}`)
+	}
+
 	static prev: number
 	static fresh(): TypeVariable {
-		return new TypeVariable((this.prev++).toString())
+		return TypeVariable.fromInt(this.prev++)
 	}
 	override unify(other: TypeExpression): Substitution {
 		return TypeExpression.bind(this.variable, other)
