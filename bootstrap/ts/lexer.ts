@@ -1,10 +1,10 @@
 import assert from "assert"
-import { openSync, readFileSync } from "fs"
+import { readFileSync } from "fs"
 import path from "path"
 import { StandardLibraryDirectory } from "./arguments"
 import { errorLogger } from "./loggers"
-import { makeToken, SourceLocation, Token, tokenString, TokenType, TokenValues } from "./tokens"
-import { BuiltInFunctionSignature, Signature, SpecificTypeConstraint } from "./types"
+import { makeToken, SourceLocation, Token, TokenType, TokenValues } from "./tokens"
+import { BuiltInFunctionSignature } from "./types"
 import { digitCode, escapeChar, isDigitCode, isWhitespace, toToastPath } from "./utils"
 
 /** The symbol representing both unary negation and subtraction */

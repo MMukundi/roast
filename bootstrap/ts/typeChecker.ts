@@ -1,8 +1,5 @@
-import { errorLogger } from "./loggers"
-import { Compiler } from "./parser"
-import { Token, TokenType, SourceLocation } from "./tokens"
-import { Type } from "./types"
-import { TypeConstraint, SpecificTypeConstraint, TypeNames, Signature, NameMap, BuiltInFunctionSignature, TokenConstraint, NameConstraint } from "./types"
+import { Token } from "./tokens"
+import { Signature } from "./types"
 
 class TypeCheckerNotYetImplementedError extends Error {
 	constructor(featureName: string) {

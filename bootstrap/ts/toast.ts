@@ -1,7 +1,6 @@
 import { exit } from "process"
-import { CompilerFlags, CompilerOptions, Flags, Options, SourceFile } from "./arguments"
-import { LexerSourceFile } from "./lexer"
-import { debugLogger, errorLogger, noteLogger, warningLogger } from "./loggers"
+import { CompilerFlags, Flags, SourceFile } from "./arguments"
+import { errorLogger, noteLogger } from "./loggers"
 import { Compiler } from "./parser"
 
 

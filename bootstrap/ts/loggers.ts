@@ -1,4 +1,4 @@
-import { CompilerArguments, CompilerFlags, Flags } from "./arguments"
+import { CompilerFlags, Flags } from "./arguments"
 import { BufferedStyledLogger, ConsoleColor } from "./style"
 
 /** Writes to stdout */
