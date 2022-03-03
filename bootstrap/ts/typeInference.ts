@@ -8,6 +8,12 @@ export abstract class Substitutable<T> {
 	abstract substitute(s: Substitution): T
 	abstract freeTypeVariables(): Set<TypeVariableType>
 }
+export abstract class ExpressionBase<T> extends Substitutable<T> {
+	constructor() {
+		super()
+	}
+	abstract asSchemeSequence(): Scheme
+}
 export const enum ExpressionType {
 	Variable,
 	Function,
@@ -16,11 +22,11 @@ export const enum ExpressionType {
 	Sequence
 }
 
-export class Scheme extends Substitutable<Scheme> {
+export class Scheme extends ExpressionBase<Scheme> {
 	constructor(public vars: string[], public type: TypeExpression) {
 		super()
 	}
-	substitute(s: Substitution): Scheme {
+	substitute(s: Substitution) {
 		const sPrime = new Map(s)
 		this.vars.forEach(v => sPrime.delete(v))
 		return new Scheme(this.vars, this.type.substitute(s))
@@ -28,11 +34,14 @@ export class Scheme extends Substitutable<Scheme> {
 	freeTypeVariables() {
 		return deleteAll(this.type.freeTypeVariables(), this.vars)
 	}
-	instantiate() {
+	instantiate(): TypeExpression {
 		return this.type.substitute(new Map(this.vars.map(v => [v, TypeVariable.fresh()])))
 	}
 	override toString() {
 		return `Forall ${this.vars.join(",")}.${this.type.toString()}`
+	}
+	override asSchemeSequence(): Scheme {
+		return (this.type.expressionType == ExpressionType.Sequence ? this : new Scheme(this.vars, new SequenceType([this.type])))
 	}
 }
 export class TypeEnvironment extends Substitutable<TypeEnvironment> {
@@ -61,13 +70,13 @@ export class TypeEnvironment extends Substitutable<TypeEnvironment> {
 	}
 }
 
-export abstract class TypeExpression extends Substitutable<TypeExpression> {
+export abstract class TypeExpression extends ExpressionBase<TypeExpression> {
 	constructor(public expressionType: ExpressionType) {
 		super()
 	}
 	abstract substitute(s: Substitution): TypeExpression
 	abstract freeTypeVariables(): Set<TypeVariableType>
-	generalize(env: TypeEnvironment) {
+	generalize(env: TypeEnvironment = new TypeEnvironment()) {
 		return new Scheme((Array.from(
 			deleteAll(this.freeTypeVariables(), env.freeTypeVariables())
 		)), this)
@@ -76,6 +85,9 @@ export abstract class TypeExpression extends Substitutable<TypeExpression> {
 		return new Scheme([], this);
 	}
 	abstract toString(): string
+	override asSchemeSequence(): Scheme {
+		return new Scheme([], new SequenceType([this]))
+	}
 
 	abstract unify(other: TypeExpression): Substitution
 
@@ -137,7 +149,12 @@ export class TypeFunction extends TypeExpression {
 			const s2 = this.output.substitute(s1).unify(otherFunc.output.substitute(s1))
 			return compose(s2, s1)
 		}
-		throw "Unification error"
+		throw new UnificationError(this, other)
+	}
+}
+class UnificationError extends Error {
+	constructor(a: TypeExpression, b: TypeExpression) {
+		super(`Unification Error: Cannot unify ${a.toString()} and ${b.toString()}`)
 	}
 }
 function compose(s1: Substitution, s2: Substitution) {
@@ -164,11 +181,12 @@ export class ConstantType extends TypeExpression {
 	override unify(other: TypeExpression): Substitution {
 		if (other.expressionType === ExpressionType.Variable) return other.unify(this)
 		if (other.expressionType === ExpressionType.Constant) {
-			if (this.type == (other as ConstantType).type) {
+			const otherType = (other as ConstantType).type
+			if (this.type == Type.Any || otherType == Type.Any || this.type == otherType) {
 				return new Map()
 			}
 		}
-		throw "Unification error"
+		throw new UnificationError(this, other)
 	}
 }
 export class SequenceType extends TypeExpression {
@@ -182,7 +200,7 @@ export class SequenceType extends TypeExpression {
 		}))
 	}
 	freeTypeVariables() {
-		return this.types.map(x => x.freeTypeVariables()).reduce((prev, s) => deleteAll(prev, s))
+		return this.types.map(x => x.freeTypeVariables()).reduce((prev, s) => deleteAll(prev, s), new Set())
 	}
 	override toString(): string {
 		return `[${this.types.map(x => x.toString()).join(", ")}]`
@@ -192,10 +210,10 @@ export class SequenceType extends TypeExpression {
 		if (other.expressionType === ExpressionType.Sequence) {
 			const otherSeq = (other as SequenceType)
 			if (otherSeq.types.length == this.types.length) {
-				// return new SequenceType(this.types.map((t, i) => t.unify(otherSeq.types[i])))
+				return this.types.map((t, i) => t.unify(otherSeq.types[i])).reduce(compose, new Map())
 			}
 		}
-		throw "Unification error"
+		throw new UnificationError(this, other)
 	}
 }
 
@@ -206,4 +224,4 @@ function deleteAll<T>(original: Iterable<T>, toDelete: Iterable<T>): Set<T> {
 	}
 	return difference
 }
-export interface Signature { inputs: TypeExpression[], outputs: TypeExpression[] }
+export interface Signature { inputs: Scheme, outputs: Scheme }
