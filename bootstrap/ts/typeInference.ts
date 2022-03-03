@@ -171,6 +171,33 @@ export class ConstantType extends TypeExpression {
 		throw "Unification error"
 	}
 }
+export class SequenceType extends TypeExpression {
+	constructor(public types: TypeExpression[]) {
+		super(ExpressionType.Sequence)
+	}
+	substitute(s: Substitution): SequenceType {
+		return new SequenceType(this.types.flatMap(t => {
+			const tAfter = t.substitute(s)
+			return tAfter.expressionType == ExpressionType.Sequence ? (tAfter as SequenceType).types : tAfter
+		}))
+	}
+	freeTypeVariables() {
+		return this.types.map(x => x.freeTypeVariables()).reduce((prev, s) => deleteAll(prev, s))
+	}
+	override toString(): string {
+		return `[${this.types.map(x => x.toString()).join(", ")}]`
+	}
+	override unify(other: TypeExpression): Substitution {
+		if (other.expressionType === ExpressionType.Variable) return other.unify(this)
+		if (other.expressionType === ExpressionType.Sequence) {
+			const otherSeq = (other as SequenceType)
+			if (otherSeq.types.length == this.types.length) {
+				// return new SequenceType(this.types.map((t, i) => t.unify(otherSeq.types[i])))
+			}
+		}
+		throw "Unification error"
+	}
+}
 
 function deleteAll<T>(original: Iterable<T>, toDelete: Iterable<T>): Set<T> {
 	const difference = new Set(original)
