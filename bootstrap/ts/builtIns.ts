@@ -1,6 +1,6 @@
 import { SourceLocation } from "./tokens";
 import { TypeChecker } from "./typeChecker";
-import { ConstantType, Scheme, SequenceType, Signature, TypeFunction } from "./typeInference";
+import { ConstantType, Scheme, SequenceType, Signature, TypeFunction, TypeVariable } from "./typeInference";
 import { Type } from "./types";
 
 export const BuiltInFunctionSignature: Record<string, Scheme> = {
@@ -8,29 +8,30 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 
 	// ...rest, b -> ...rest
 	'pop': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([TypeVariable.fromInt(0)]),
 		new SequenceType([])
 	).generalize(),
 
 	// TODO! Variadic number of inputs
 	'popN': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Any)]),
+		new SequenceType([TypeVariable.fromInt(0)]),
 		new SequenceType([])
 	).generalize(),
 
 	'swap': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)]),
-		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+		new SequenceType([TypeVariable.fromInt(0), TypeVariable.fromInt(1)]),
+		new SequenceType([TypeVariable.fromInt(1), TypeVariable.fromInt(0)])
 	).generalize(),
 	'dup': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Any)]),
-		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+		new SequenceType([TypeVariable.fromInt(0)]),
+		new SequenceType([TypeVariable.fromInt(0), TypeVariable.fromInt(0)])
 	).generalize(),
 
 	// -- ROLL --
+	// TODO! Variadic number of inputs
 	'roll': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Any)]),
-		new SequenceType([new ConstantType(Type.Any), new ConstantType(Type.Any)])
+		new SequenceType([TypeVariable.fromInt(0)]),
+		new SequenceType([TypeVariable.fromInt(0), TypeVariable.fromInt(1)])
 	).generalize(),
 
 	'close': new TypeFunction(
@@ -49,10 +50,10 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 
 	'readFile': new TypeFunction(
 		new SequenceType([new ConstantType(Type.FileDescriptor)]),
-		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.Integer)])
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.MemoryRegion)])
 	).generalize(),
 	'readFileTo': new TypeFunction(
-		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.FileDescriptor)]),
+		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.MemoryRegion)]),
 		new SequenceType([new ConstantType(Type.Integer)])
 	).generalize(),
 
@@ -72,12 +73,12 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 	).generalize(),
 
 	'print': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.Integer)]),
 		new SequenceType([])
 	).generalize(),
 
 	'fprint': new TypeFunction(
-		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.Integer), new ConstantType(Type.StringPointer)]),
 		new SequenceType([])
 	).generalize(),
 
@@ -87,7 +88,7 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 		new SequenceType([])
 	).generalize(),
 	'fprintf': new TypeFunction(
-		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.StringPointer)]),
+		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.FileDescriptor)]),
 		new SequenceType([])
 	).generalize(),
 
@@ -102,7 +103,7 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 	).generalize(),
 
 	'filePrintNum': new TypeFunction(
-		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer)]),
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.FileDescriptor)]),
 		new SequenceType([])
 	).generalize(),
 	'printNum': new TypeFunction(
@@ -110,7 +111,7 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 		new SequenceType([])
 	).generalize(),
 	'filePrintNumBase': new TypeFunction(
-		new SequenceType([new ConstantType(Type.FileDescriptor), new ConstantType(Type.Integer), new ConstantType(Type.Integer)]),
+		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Integer), new ConstantType(Type.FileDescriptor)]),
 		new SequenceType([])
 	).generalize(),
 	'printNumBase': new TypeFunction(
@@ -144,6 +145,7 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 		new SequenceType([new ConstantType(Type.StringPointer), new ConstantType(Type.StringPointer)]),
 		new SequenceType([])
 	).generalize(),
+
 	'memCopy': new TypeFunction(
 		new SequenceType([new ConstantType(Type.MemoryRegion), new ConstantType(Type.MemoryRegion)]),
 		new SequenceType([])
@@ -162,40 +164,40 @@ export const BuiltInFunctionSignature: Record<string, Scheme> = {
 
 	// TODO! Change to 'type that can convert to pointer'
 	'getPtr': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
 		new SequenceType([new ConstantType(Type.Pointer)])
 	).generalize(),
 	// TODO! More specific than any?
 	'get': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
-		new SequenceType([new ConstantType(Type.Any)])
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
+		new SequenceType([TypeVariable.fromInt(0)])
 	).generalize(),
 	'set': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Any)]),
+		new SequenceType([TypeVariable.fromInt(0), new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
 		new SequenceType([])
 	).generalize(),
 	'read': new TypeFunction(
 		new SequenceType([new ConstantType(Type.Pointer)]),
-		new SequenceType([new ConstantType(Type.Any)])
+		new SequenceType([TypeVariable.fromInt(0)])
 	).generalize(),
 	'write': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Any)]),
+		new SequenceType([new ConstantType(Type.Pointer), TypeVariable.fromInt(0)]),
 		new SequenceType([])
 	).generalize(),
 
 	// TODO! Change to 'type that can convert to pointer'
 	// TODO! Typing for bytes vs values
 	'getBytePtr': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
 		new SequenceType([new ConstantType(Type.Pointer)])
 	).generalize(),
 	// TODO! More specific than any?
 	'getByte': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer)]),
+		new SequenceType([new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
 		new SequenceType([new ConstantType(Type.Byte)])
 	).generalize(),
 	'setByte': new TypeFunction(
-		new SequenceType([new ConstantType(Type.Integer), new ConstantType(Type.Pointer), new ConstantType(Type.Byte)]),
+		new SequenceType([new ConstantType(Type.Byte), new ConstantType(Type.Pointer), new ConstantType(Type.Integer)]),
 		new SequenceType([])
 	).generalize(),
 	'readByte': new TypeFunction(
