@@ -219,6 +219,58 @@ export class SequenceType extends TypeExpression {
 		}
 		throw new UnificationError(this, other)
 	}
+	append(expressionType: TypeExpression) {
+		return expressionType.expressionType == ExpressionType.Sequence ? new SequenceType([...this.types, ...(expressionType as SequenceType).types]) : new SequenceType([...this.types, expressionType])
+	}
+	concatenateSequence(laterSequence: SequenceType) {
+		return this.concatenate(laterSequence.types)
+	}
+	concatenate(laterSequence: TypeExpression[]) {
+		return new SequenceType([...this.types, ...laterSequence])
+	}
+
+	length(): number {
+		return this.types.length
+	}
+
+	get(index: number): TypeExpression {
+		return this.types[index]
+	}
+	set(index: number, expression: TypeExpression) {
+		const typesCopy = [...this.types]
+		if (expression.expressionType == ExpressionType.Sequence) {
+			typesCopy.splice(index, 0, ...(expression as SequenceType).types)
+		}
+		else {
+			typesCopy[index] = expression
+		}
+		return new SequenceType(typesCopy)
+	}
+	subsequence(start: number, end: number): SequenceType {
+		return new SequenceType(this.subsequenceTypes(start, end))
+	}
+	subsequenceTypes(start: number, end: number) {
+		return this.types.slice(start, end)
+	}
+
+	headSubsequence(length: number): SequenceType {
+		return this.subsequence(0, length + 1)
+	}
+	headSubsequenceTypes(length: number) {
+		return this.subsequenceTypes(0, length + 1)
+	}
+
+	tailSubsequence(length: number): SequenceType {
+		return this.subsequence(this.types.length - length, this.types.length)
+	}
+	tailSubsequenceTypes(length: number) {
+		return this.subsequenceTypes(this.types.length - length, this.types.length)
+	}
+
+	splitAt(index: number): [SequenceType, SequenceType] {
+		return [this.subsequence(0, index), this.subsequence(index, this.types.length)]
+	}
+
 }
 
 function deleteAll<T>(original: Iterable<T>, toDelete: Iterable<T>): Set<T> {
