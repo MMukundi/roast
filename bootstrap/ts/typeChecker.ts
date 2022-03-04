@@ -1,7 +1,7 @@
 import { type } from "os"
 import { BuiltInFunctionSignature } from "./builtIns"
 import { Token, TokenType } from "./tokens"
-import { ConstantType, ExpressionType, SequenceType, Signature, TypeExpression, TypeFunction } from "./typeInference"
+import { ConstantType, ExpressionType, Scheme, SequenceType, Signature, TypeExpression, TypeFunction } from "./typeInference"
 import { Type } from "./types"
 
 class TypeCheckerNotYetImplementedError extends Error {
@@ -12,39 +12,43 @@ class TypeCheckerNotYetImplementedError extends Error {
 
 const integer = new ConstantType(Type.Integer)
 const stringType = new ConstantType(Type.StringPointer)
+const OperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([integer])).generalize()
+const IntSignature = new TypeFunction(new SequenceType([]), new SequenceType([integer])).generalize()
+const BoolSignature = new TypeFunction(new SequenceType([]), new SequenceType([stringType])).generalize()
 export class TypeChecker {
-	expect(actual: TypeExpression[], expected: TypeExpression[]) {
+	typeStack: SequenceType = new SequenceType([])
+	expect(signature: Scheme) {
 		//TODO: Type checking
+		// It is known to be
+		const instantiatedSignature = signature.instantiate() as TypeFunction
+		const expectedSequence = instantiatedSignature.input as SequenceType
+
+		// console.log('Function Signature:', instantiatedSignature.toString())
+
+		const [rest, actualSequence] = this.typeStack.splitAt(this.typeStack.length() - expectedSequence.length())
+		// console.log(`Unifying: ${actualSequence.toString()}(actual) and ${expectedSequence.toString()}(expected)`)
+		const substitution = actualSequence.unify(expectedSequence)
+
+		this.typeStack = rest.concatenateSequence(instantiatedSignature.output as SequenceType).substitute(substitution)
+		// console.log("Stack:", this.typeStack.toString())
 	}
 	infer(tokens: Token[]): Signature {
-		const types: TypeExpression[] = []
+
 		for (const token of tokens) {
 			if (token.type == TokenType.BuiltInFunction) {
-				const signature = BuiltInFunctionSignature[token.value].instantiate() as TypeFunction
-
-				// It is known to be
-				const expectedSequence = signature.input as SequenceType
-
-				const actualSequence = new SequenceType(types.splice(types.length - expectedSequence.types.length, expectedSequence.types.length))
-				console.log(`Trying to unify ${actualSequence.toString()}(actual) and ${expectedSequence.toString()}(expected)`)
-				console.log(actualSequence.unify(expectedSequence))
-
-				// this.expect(actualSequence, signature.inputs)
-				types.push(...(signature.output as SequenceType).types)
+				const signature = BuiltInFunctionSignature[token.value]
+				this.expect(signature)
 			} else if (token.type == TokenType.MathOperator) {
-				const inputs = types.splice(types.length - 2, 2)
-				this.expect(inputs, [integer, integer])
-				types.push(integer)
+				this.expect(OperatorSignature)
 			}
 			else if (token.type == TokenType.Integer) {
-				types.push(integer)
+				this.expect(IntSignature)
 			}
 			else if (token.type == TokenType.StringPointer) {
-				types.push(stringType)
+				this.expect(BoolSignature)
 			} else {
 				throw new TypeCheckerNotYetImplementedError(`Checking ${token.type}`)
 			}
-			console.log(new SequenceType(types).toString())
 		}
 		throw new TypeCheckerNotYetImplementedError('Type inference')
 	}
