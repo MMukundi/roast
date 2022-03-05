@@ -1,10 +1,17 @@
 1 2 + value def
 { 2 * } double def
 { double call double call } quadruple def
-value quadruple call "Hi!"c printf
+value printNum
+" * 4 = "c printf
+value quadruple call printNum
+"\n"c printf
 
 {
 	{ "False"c }
 	{ "True"c }
 	ifelse
 } boolToString def
+
+"1 < 2 := "c printf
+1 2 < boolToString call printf
+"\n"c printf

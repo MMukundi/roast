@@ -13,7 +13,11 @@ class TypeCheckerNotYetImplementedError extends Error {
 const integer = new ConstantType(Type.Integer)
 const stringType = new ConstantType(Type.StringPointer)
 const boolType = new ConstantType(Type.Boolean)
-const OperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([integer])).generalize()
+
+const IntOperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([integer])).generalize()
+const BoolOperatorSignature = new TypeFunction(new SequenceType([boolType, boolType]), new SequenceType([boolType])).generalize()
+const CompOperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([boolType])).generalize()
+
 const IntSignature = new TypeFunction(new SequenceType([]), new SequenceType([integer])).generalize()
 const StringPointerSignature = new TypeFunction(new SequenceType([]), new SequenceType([stringType])).generalize()
 const NewVarSignature = new TypeFunction(new SequenceType([]), new SequenceType([TypeVariable.fromInt(0)])).generalize()
@@ -81,7 +85,15 @@ export class TypeChecker {
 				const signature = BuiltInFunctionSignature[token.value]
 				this.expect(signature)
 			} else if (token.type == TokenType.MathOperator) {
-				this.expect(OperatorSignature)
+				this.expect(IntOperatorSignature)
+			} else if (token.type == TokenType.LogicOperator) {
+				this.expect(BoolOperatorSignature)
+			}
+			else if (token.type == TokenType.ComparisonOperator) {
+				this.expect(CompOperatorSignature)
+			}
+			else if (token.type == TokenType.ShiftOperator) {
+				this.expect(IntOperatorSignature)
 			}
 			else if (token.type == TokenType.Integer) {
 				this.expect(IntSignature)
