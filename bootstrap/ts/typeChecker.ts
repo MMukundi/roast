@@ -16,7 +16,13 @@ const boolType = new ConstantType(Type.Boolean)
 
 const IntOperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([integer])).generalize()
 const BoolOperatorSignature = new TypeFunction(new SequenceType([boolType, boolType]), new SequenceType([boolType])).generalize()
+const BoolUnaryOperatorSignature = new TypeFunction(new SequenceType([boolType]), new SequenceType([boolType])).generalize()
 const CompOperatorSignature = new TypeFunction(new SequenceType([integer, integer]), new SequenceType([boolType])).generalize()
+
+
+
+// const AnyFunc = new TypeFunction(new SequenceType([TypeVariable.fromInt(0)]), new SequenceType([TypeVariable.fromInt(1)])).generalize()
+const AnyFunc = new TypeFunction(TypeVariable.fromInt(0), TypeVariable.fromInt(1)).generalize()
 
 const IntSignature = new TypeFunction(new SequenceType([]), new SequenceType([integer])).generalize()
 const StringPointerSignature = new TypeFunction(new SequenceType([]), new SequenceType([stringType])).generalize()
@@ -26,6 +32,7 @@ const StringSignature = new TypeFunction(new SequenceType([]), new SequenceType(
 
 const IfElseSignature = new TypeFunction(
 	new SequenceType([
+		TypeVariable.fromInt(0),
 		boolType,
 		new TypeFunction(TypeVariable.fromInt(0), TypeVariable.fromInt(1)),
 		new TypeFunction(TypeVariable.fromInt(0), TypeVariable.fromInt(1))
@@ -59,7 +66,6 @@ export class TypeChecker {
 
 	unify(a: TypeExpression, b: TypeExpression) {
 		const substitution = a.unify(b)
-
 		this.substitution = compose(this.substitution, substitution)
 		this.typeStack = this.typeStack.substitute(this.substitution)
 		this.environment = this.environment.substitute(this.substitution)
@@ -69,15 +75,17 @@ export class TypeChecker {
 		// It is known to be
 		const instantiatedSignature = signature.instantiate() as TypeFunction
 		const substitutedSignature = instantiatedSignature.substitute(this.substitution) as TypeFunction
+		// console.log(signature.toString(), instantiatedSignature.toString(), substitutedSignature.toString(), this.substitution, this.environment)
+		const expectedSequence = substitutedSignature.input
+		// console.log(substitutedSignature.toString(), new TypeFunction(new SequenceType(this.inputStack), this.typeStack).substitute(this.substitution).toString())
 
-		const expectedSequence = substitutedSignature.input as SequenceType
+		const actualSequence = this.popN(expectedSequence.expressionType == ExpressionType.Sequence ? (expectedSequence as SequenceType).length() : 1)
 
-		const actualSequence = this.popN(expectedSequence.length())
-
-		this.typeStack = this.typeStack.concatenateSequence(substitutedSignature.output as SequenceType)
+		this.typeStack = this.typeStack.concatenateSequence(substitutedSignature.output.expressionType == ExpressionType.Sequence ? (substitutedSignature.output as SequenceType) : new SequenceType([substitutedSignature.output]))
 		this.unify(actualSequence, expectedSequence)
 	}
 	infer(tokens: Token[]): [Substitution, TypeFunction] {
+		// console.log("START", new TypeFunction(new SequenceType(this.inputStack), this.typeStack).substitute(this.substitution).toString())
 
 		for (let i = 0; i < tokens.length; i++) {
 			const token = tokens[i]
@@ -87,7 +95,12 @@ export class TypeChecker {
 			} else if (token.type == TokenType.MathOperator) {
 				this.expect(IntOperatorSignature)
 			} else if (token.type == TokenType.LogicOperator) {
-				this.expect(BoolOperatorSignature)
+				if (token.value == "!") {
+					this.expect(BoolUnaryOperatorSignature)
+				} else {
+					this.expect(BoolOperatorSignature)
+
+				}
 			}
 			else if (token.type == TokenType.ComparisonOperator) {
 				this.expect(CompOperatorSignature)
@@ -96,10 +109,10 @@ export class TypeChecker {
 				this.expect(IntOperatorSignature)
 			}
 			else if (token.type == TokenType.Integer) {
-				this.expect(IntSignature)
+				this.typeStack = this.typeStack.append(integer)
 			}
 			else if (token.type == TokenType.StringPointer) {
-				this.expect(StringPointerSignature)
+				this.typeStack = this.typeStack.append(stringType)
 			}
 			else if (token.type == TokenType.CodeBlock) {
 				/* 
@@ -108,8 +121,9 @@ export class TypeChecker {
 				structures like defs and if(else)s together, so we can evaluate on /those/, which
 				is much easier
 				*/
-				const codeblockVar = TypeVariable.fresh()
+				const codeblockVar = AnyFunc.instantiate() as TypeFunction
 				if (tokens[i + 2]?.type == TokenType.Keyword && tokens[i + 2]?.value == "def") {
+					// console.log("defed")
 					const nextTok = tokens[i + 1]
 					if (nextTok?.type == TokenType.Name) {
 						this.environment = this.environment.extend(nextTok.value, codeblockVar.scheme())
@@ -118,10 +132,7 @@ export class TypeChecker {
 						throw "Definition error: 'def' must be preceded by a name."
 					}
 				} else {
-					this.expect(new TypeFunction(
-						new SequenceType([]),
-						new SequenceType([codeblockVar])
-					).scheme())
+					this.typeStack = this.typeStack.append(codeblockVar)
 				}
 
 				const newChecker = new TypeChecker()
@@ -129,22 +140,38 @@ export class TypeChecker {
 				newChecker.substitution = new Map(this.substitution)
 
 				const [subs, inferredSignature] = newChecker.infer(token.value.tokens)
-				const otherSubs = TypeExpression.bind(codeblockVar.variable, inferredSignature)
-				this.substitution = compose(otherSubs, compose(subs, this.substitution))
+
+				const inp = TypeExpression.bind((codeblockVar.input as TypeVariable).variable, inferredSignature.input)
+				const out = TypeExpression.bind((codeblockVar.output as TypeVariable).variable, inferredSignature.output)
+
+				this.unify(codeblockVar, inferredSignature)
+
+				// const otherSubs = TypeExpression.bind(codeblockVar.variable, inferredSignature)
+				// this.substitution = compose(compose( this.substitution,subs),otherSubs)
+				// this.environment = this.environment.substitute(this.substitution)
+				// this.environment = this.environment.extend(codeblockVar.variable, inferredSignature.generalize())
+
+				this.substitution = compose(compose(compose(this.substitution, subs), inp), out)
 				this.environment = this.environment.substitute(this.substitution)
-				this.environment = this.environment.extend(codeblockVar.variable, inferredSignature.generalize())
+				// this.typeStack = this.typeStack.append(inferredSignature)
+				// this.environment = this.environment.extend(codeblockVar.variable, inferredSignature.generalize())
 			}
 			else if (token.type == TokenType.Name) {
+				// console.log(i, tokens[i], tokens[i + 1])
 				if (this.environment.has(token.value)) {
-					// TODO: This wouldn't work with multivalue type variables
-					this.expect(new TypeFunction(
-						new SequenceType([]),
-						new SequenceType([this.environment.get(token.value).instantiate()])
-					).generalize())
+					// TODO: This may not work with multi-value type variables
+					const value = this.environment.get(token.value).instantiate()
+					if (value.expressionType == ExpressionType.Variable) {
+						// console.log("passing on ", token, value)
+						this.typeStack = this.typeStack.append(new TypeVariable(token.value))
+					}
+					else {
+						this.typeStack = this.typeStack.append(value)
+					}
+
 				} else if (tokens[i + 1]?.type == TokenType.Keyword && tokens[i + 1]?.value == "def") {
-					this.expect(new TypeFunction(
-						new SequenceType([]),
-						new SequenceType([new TypeVariable(token.value)])).scheme())
+					this.typeStack = this.typeStack.append(new TypeVariable(token.value))
+
 				}
 
 				else {
@@ -171,6 +198,8 @@ export class TypeChecker {
 			} else {
 				throw new TypeCheckerNotYetImplementedError(`Checking ${token.type}`)
 			}
+			// console.log(tokenString(token), new TypeFunction(new SequenceType(this.inputStack), this.typeStack).substitute(this.substitution).toString())
+
 		}
 
 		return [this.substitution, new TypeFunction(new SequenceType(this.inputStack), this.typeStack).substitute(this.substitution)]

@@ -155,6 +155,7 @@ export class TypeFunction extends TypeExpression {
 			const otherFunc = other as TypeFunction
 			const s1 = this.input.unify(otherFunc.input)
 			const s2 = this.output.substitute(s1).unify(otherFunc.output.substitute(s1))
+			// console.log("A", s1, s2)
 			return compose(s2, s1)
 		}
 		throw new UnificationError(this, other)
