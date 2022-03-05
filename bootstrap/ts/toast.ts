@@ -27,7 +27,6 @@ if (!compiler.generateAssembly()) {
 	errorLogger.styleLog("Compilation failed.")
 	exit(1)
 }
-compiler.generateAssembly()
 compiler.write("\ttoastExit 0\n")
 compiler.save()
 compiler.compile(CompilerFlags[Flags.EmitPreprocessed])
