@@ -1,3 +1,7 @@
+# ⚠️DEPRECATED⚠️
+While this Typescript implementation will always be in Toast's DNA, it underwent 🦀crabification🦀, as all things someday will.
+Please follow its development to [its new Rusty home](https://github.com/MMukundi/toast).
+
 # ToastScript
 
 A PostScript-inspired language bootstrapped with Typescript
